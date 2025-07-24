@@ -5,12 +5,28 @@
 <div class="container mt-5">
   <h2 class="mb-4">Register</h2>
 
+  <!-- Error display block -->
+  {% if form.errors %}
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      {% for field in form %}
+        {% for error in field.errors %}
+          <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+        {% endfor %}
+      {% endfor %}
+      {% for error in form.non_field_errors %}
+        <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
   <div class="btn-group mb-4" role="group" aria-label="Toggle user type">
-    <button type="button" class="btn btn-outline-primary" id="toggle-student">Student</button>
+    <button type="button" class="btn btn-primary" id="toggle-student">Student</button>
     <button type="button" class="btn btn-outline-secondary" id="toggle-lecturer">Lecturer</button>
   </div>
 
-  <form method="POST" action="">
+  <form method="POST" action="" onsubmit="return validatePasswords();">
     {% csrf_token %}
 
     <!-- Hidden fields for role tracking -->
@@ -41,6 +57,7 @@
     <div class="form-group mb-3">
       <label for="id_confirm_password">Confirm Password</label>
       <input type="password" name="confirm_password" class="form-control" required id="id_confirm_password">
+      <small id="password-error" class="text-danger d-none">Passwords do not match.</small>
     </div>
 
     <!-- Student-only fields -->
@@ -76,8 +93,8 @@
 
     <button type="submit" class="btn btn-success mt-3">Register</button>
     <p class="mt-3 text-center">
-    Already have an account? <a href="{% url 'login' %}">Login</a>
-</p>
+      Already have an account? <a href="{% url 'login' %}">Login</a>
+    </p>
   </form>
 </div>
 
@@ -94,10 +111,11 @@
     lecturerFields.style.display = "none";
     isStudentInput.value = "true";
     isLecturerInput.value = "false";
+
     toggleStudent.classList.add("btn-primary");
     toggleStudent.classList.remove("btn-outline-primary");
-    toggleLecturer.classList.add("btn-outline-secondary");
     toggleLecturer.classList.remove("btn-secondary");
+    toggleLecturer.classList.add("btn-outline-secondary");
   });
 
   toggleLecturer.addEventListener("click", () => {
@@ -105,10 +123,26 @@
     lecturerFields.style.display = "block";
     isStudentInput.value = "false";
     isLecturerInput.value = "true";
+
     toggleLecturer.classList.add("btn-secondary");
     toggleLecturer.classList.remove("btn-outline-secondary");
-    toggleStudent.classList.add("btn-outline-primary");
     toggleStudent.classList.remove("btn-primary");
+    toggleStudent.classList.add("btn-outline-primary");
   });
+
+  // Password validation
+  function validatePasswords() {
+    const password = document.getElementById("id_password").value;
+    const confirmPassword = document.getElementById("id_confirm_password").value;
+    const errorMsg = document.getElementById("password-error");
+
+    if (password !== confirmPassword) {
+      errorMsg.classList.remove("d-none");
+      return false;
+    } else {
+      errorMsg.classList.add("d-none");
+      return true;
+    }
+  }
 </script>
 {% endblock %}
