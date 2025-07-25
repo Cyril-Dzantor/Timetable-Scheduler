@@ -24,6 +24,7 @@
   <div class="btn-group mb-4" role="group" aria-label="Toggle user type">
     <button type="button" class="btn btn-primary" id="toggle-student">Student</button>
     <button type="button" class="btn btn-outline-secondary" id="toggle-lecturer">Lecturer</button>
+    <button type="button" class="btn btn-outline-danger" id="toggle-admin">Admin</button>
   </div>
 
   <form method="POST" action="" onsubmit="return validatePasswords();">
@@ -32,6 +33,7 @@
     <!-- Hidden fields for role tracking -->
     <input type="hidden" name="is_student" id="id_is_student" value="true">
     <input type="hidden" name="is_lecturer" id="id_is_lecturer" value="false">
+    <input type="hidden" name="is_admin" id="id_is_admin" value="false">
 
     <!-- Common fields -->
     <div class="form-group mb-3">
@@ -78,8 +80,8 @@
       </div>
     </div>
 
-    <!-- Lecturer-only fields -->
-    <div id="lecturer-fields" style="display: none;">
+    <!-- Lecturer/Admin fields -->
+    <div id="staff-fields" style="display: none;">
       <div class="form-group mb-3">
         <label for="id_staff_id">Staff ID</label>
         <input type="text" name="staff_id" class="form-control" id="id_staff_id">
@@ -88,6 +90,11 @@
       <div class="form-group mb-3">
         <label for="id_department">Department</label>
         <input type="text" name="department" class="form-control" id="id_department">
+      </div>
+      
+      <!-- Admin-specific note -->
+      <div id="admin-note" class="alert alert-info mt-3" style="display: none;">
+        Note: Admin accounts will need to be activated by a superuser.
       </div>
     </div>
 
@@ -101,33 +108,62 @@
 <script>
   const toggleStudent = document.getElementById("toggle-student");
   const toggleLecturer = document.getElementById("toggle-lecturer");
+  const toggleAdmin = document.getElementById("toggle-admin");
   const studentFields = document.getElementById("student-fields");
-  const lecturerFields = document.getElementById("lecturer-fields");
+  const staffFields = document.getElementById("staff-fields");
+  const adminNote = document.getElementById("admin-note");
   const isStudentInput = document.getElementById("id_is_student");
   const isLecturerInput = document.getElementById("id_is_lecturer");
+  const isAdminInput = document.getElementById("id_is_admin");
+
+  // Set initial state
+  function resetAllButtons() {
+    toggleStudent.classList.remove("btn-primary", "btn-outline-primary");
+    toggleLecturer.classList.remove("btn-secondary", "btn-outline-secondary");
+    toggleAdmin.classList.remove("btn-danger", "btn-outline-danger");
+    
+    toggleStudent.classList.add("btn-outline-primary");
+    toggleLecturer.classList.add("btn-outline-secondary");
+    toggleAdmin.classList.add("btn-outline-danger");
+  }
 
   toggleStudent.addEventListener("click", () => {
+    resetAllButtons();
     studentFields.style.display = "block";
-    lecturerFields.style.display = "none";
+    staffFields.style.display = "none";
+    adminNote.style.display = "none";
     isStudentInput.value = "true";
     isLecturerInput.value = "false";
+    isAdminInput.value = "false";
 
     toggleStudent.classList.add("btn-primary");
     toggleStudent.classList.remove("btn-outline-primary");
-    toggleLecturer.classList.remove("btn-secondary");
-    toggleLecturer.classList.add("btn-outline-secondary");
   });
 
   toggleLecturer.addEventListener("click", () => {
+    resetAllButtons();
     studentFields.style.display = "none";
-    lecturerFields.style.display = "block";
+    staffFields.style.display = "block";
+    adminNote.style.display = "none";
     isStudentInput.value = "false";
     isLecturerInput.value = "true";
+    isAdminInput.value = "false";
 
     toggleLecturer.classList.add("btn-secondary");
     toggleLecturer.classList.remove("btn-outline-secondary");
-    toggleStudent.classList.remove("btn-primary");
-    toggleStudent.classList.add("btn-outline-primary");
+  });
+
+  toggleAdmin.addEventListener("click", () => {
+    resetAllButtons();
+    studentFields.style.display = "none";
+    staffFields.style.display = "block";
+    adminNote.style.display = "block";
+    isStudentInput.value = "false";
+    isLecturerInput.value = "false";
+    isAdminInput.value = "true";
+
+    toggleAdmin.classList.add("btn-danger");
+    toggleAdmin.classList.remove("btn-outline-danger");
   });
 
   // Password validation

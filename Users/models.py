@@ -6,6 +6,7 @@ class User(AbstractUser):
     email = models.EmailField(_('school email'), unique=True)
     is_student = models.BooleanField(default=False)
     is_lecturer = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
 
     REQUIRED_FIELDS = ['username']
     USERNAME_FIELD = 'email'
@@ -34,5 +35,15 @@ class LecturerProfile(models.Model):
     department = models.CharField(max_length=100)
     secondary_email = models.EmailField(blank=True, null=True)
 
+    def __str__(self):
+        return f"{self.user.get_full_name()} ({self.staff_id})"
+    
+
+class AdminProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
+    department = models.CharField(max_length=100, blank=True, null=True)  
+    staff_id = models.CharField(max_length=20, unique=True, db_index=True)
+    secondary_email = models.EmailField(blank=True, null=True)
+    
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.staff_id})"

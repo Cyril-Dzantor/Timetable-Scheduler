@@ -30,6 +30,8 @@ def redirect_by_role(request):
         return redirect('portal:student_dashboard')
     elif user.is_lecturer and hasattr(user, 'lecturer_profile'):
         return redirect('portal:lecturer_dashboard')
+    elif user.is_admin and hasattr(user,'admin_profile'):
+        return redirect('home')
     return redirect('home')
 
 def register_view(request):

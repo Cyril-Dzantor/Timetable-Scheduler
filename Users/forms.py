@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import authenticate
-from .models import StudentProfile, LecturerProfile, User
+from .models import StudentProfile, LecturerProfile, AdminProfile,User
 
 class CustomLoginForm(forms.Form):
     email = forms.EmailField(label="School Email", required=True)
@@ -42,6 +42,12 @@ class CustomLoginForm(forms.Form):
                     raise forms.ValidationError("Staff ID mismatch.")
             except LecturerProfile.DoesNotExist:
                 raise forms.ValidationError("Lecturer profile not found.")
+        elif user.is_admin:
+            try:
+                if user.admin_profile.staff_id != identifier:
+                    raise forms.ValidationError("Staff ID mismatch.")
+            except AdminProfile.DoesNotExist:
+                raise forms.ValidationError("Admin profile not found.")
 
         self.user_cache = user
         return cleaned_data
@@ -54,6 +60,7 @@ class CustomRegisterForm(forms.ModelForm):
     confirm_password = forms.CharField(widget=forms.PasswordInput)
     is_student = forms.BooleanField(required=False, widget=forms.HiddenInput())
     is_lecturer = forms.BooleanField(required=False, widget=forms.HiddenInput())
+    is_admin = forms.BooleanField(required=False, widget=forms.HiddenInput())
 
     secondary_email = forms.EmailField(required=True)
     index_number = forms.CharField(required=False)
@@ -72,6 +79,7 @@ class CustomRegisterForm(forms.ModelForm):
         confirm_password = cleaned_data.get('confirm_password')
         is_student = cleaned_data.get('is_student')
         is_lecturer = cleaned_data.get('is_lecturer')
+        is_admin = cleaned_data.get('is_admin')
 
         if not password or not confirm_password:
             raise forms.ValidationError("Both password fields are required.")
@@ -83,6 +91,8 @@ class CustomRegisterForm(forms.ModelForm):
             raise forms.ValidationError("Index number is required for students.")
         if is_lecturer and not cleaned_data.get('staff_id'):
             raise forms.ValidationError("Staff ID is required for lecturers.")
+        if is_admin and not cleaned_data.get('staff_id'):
+            raise forms.ValidationError("Staff ID is required for admins.")
 
         return cleaned_data
 
@@ -91,6 +101,7 @@ class CustomRegisterForm(forms.ModelForm):
         user.set_password(self.cleaned_data['password'])
         user.is_student = self.cleaned_data.get('is_student', False)
         user.is_lecturer = self.cleaned_data.get('is_lecturer', False)
+        user.is_admin = self.cleaned_data.get('is_admin', False)
 
         if commit:
             user.save()
@@ -104,6 +115,13 @@ class CustomRegisterForm(forms.ModelForm):
                 )
             elif user.is_lecturer:
                 LecturerProfile.objects.create(
+                    user=user,
+                    staff_id=self.cleaned_data['staff_id'],
+                    department=self.cleaned_data['department'],
+                    secondary_email=self.cleaned_data['secondary_email']
+                )
+            elif user.is_admin:
+                AdminProfile.objects.create(
                     user=user,
                     staff_id=self.cleaned_data['staff_id'],
                     department=self.cleaned_data['department'],
