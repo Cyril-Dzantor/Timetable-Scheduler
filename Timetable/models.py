@@ -85,6 +85,11 @@ class Class(models.Model):
         verbose_name_plural = "Classes"
         ordering = ['code']
 
+    @property
+    def student_indices(self):
+        return list(self.classstudent_set.values_list('student_index', flat=True))
+
+
     def __str__(self):
         return self.code
 
@@ -131,6 +136,11 @@ class Course(models.Model):
     class Meta:
         ordering = ['code']
 
+    @property
+    def registered_students(self):
+        return list(self.courseregistration_set.values_list('student_index', flat=True))
+
+
     def __str__(self):
         return f"{self.code} - {self.title}"
 
@@ -173,3 +183,25 @@ class ProctorAssignment(models.Model):
 
     def __str__(self):
         return f"{self.proctor.name} on {self.exam_date.date}"
+    
+
+class ClassStudent(models.Model):
+    assigned_class = models.ForeignKey('Timetable.Class', on_delete=models.CASCADE)
+    student_index = models.CharField(max_length=20, db_index=True)
+
+    class Meta:
+        unique_together = ('assigned_class', 'student_index')
+
+    def __str__(self):
+        return f"{self.student_index} in {self.assigned_class.code}"
+    
+
+class CourseRegistration(models.Model):
+    course = models.ForeignKey('Timetable.Course', on_delete=models.CASCADE)
+    student_index = models.CharField(max_length=20, db_index=True)
+
+    class Meta:
+        unique_together = ('course', 'student_index')
+
+    def __str__(self):
+        return f"{self.student_index} registered for {self.course.code}"

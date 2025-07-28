@@ -1,0 +1,171 @@
+{% extends 'home/base.html' %}
+{% block title %}Exam Schedule{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="my-4">Exam Schedule</h2>
+    
+    {% if success %}
+        <!-- Main Exam Schedule Table -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Scheduled Exams</h3>
+            </div>
+            <div class="card-body">
+                {% for day in exam_days %}
+                <h4 class="mt-4">{{ day }}</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Time Slot</th>
+                                <th>Course</th>
+                                <th>Rooms</th>
+                                <th>Classes</th>
+                                <th>Students</th>
+                                <th>Proctors</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for slot in exam_slots %}
+                                {% for exam in exam_schedule %}
+                                    {% if exam.day == day and exam.slot == slot %}
+                                    <tr>
+                                        <td>{{ slot }}</td>
+                                        <td>{{ exam.course }}</td>
+                                        <td>
+                                            <ul class="list-unstyled">
+                                                {% for room in exam.rooms %}
+                                                <li>
+                                                    {{ room.room }} 
+                                                    {% if room.columns_used %}
+                                                        (Columns: {{ room.columns_used }})
+                                                    {% endif %}
+                                                </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <ul class="list-unstyled">
+                                                {% for room in exam.rooms %}
+                                                <li>{{ room.class }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <ul class="list-unstyled">
+                                                {% for room in exam.rooms %}
+                                                <li>{{ room.students_count }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            {% for room, proctors in exam.proctors.items %}
+                                            <div>
+                                                <strong>{{ room }}:</strong>
+                                                {% if proctors %}
+                                                    {{ proctors|join:", " }}
+                                                {% else %}
+                                                    Not assigned
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Manual Assignments Section -->
+        {% if manual_assignments %}
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-warning text-white">
+                <h3>Courses Requiring Manual Scheduling</h3>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Course</th>
+                            <th>Unassigned Students</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in manual_assignments %}
+                        <tr>
+                            <td>{{ item.course }}</td>
+                            <td>{{ item.unassigned_count }}</td>
+                            <td>{{ item.reason }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Unused Columns Section -->
+        {% if unused_columns %}
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h3>Available Exam Seating</h3>
+            </div>
+            <div class="card-body">
+                <p>The following columns are available for additional students:</p>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Time Slot</th>
+                            <th>Room</th>
+                            <th>Column</th>
+                            <th>Capacity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day, slot, room, col_index, row_num in unused_columns %}
+                        <tr>
+                            <td>{{ day }}</td>
+                            <td>{{ slot }}</td>
+                            <td>{{ room }}</td>
+                            <td>{{ col_index }}</td>
+                            <td>{{ row_num }} seats</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <div class="alert alert-danger">
+            <h4>Error Generating Schedule</h4>
+            <p>{{ error }}</p>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .table-responsive {
+        overflow-x: auto;
+    }
+    .card {
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card-header {
+        padding: 15px 20px;
+    }
+    .list-unstyled li {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}

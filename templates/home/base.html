@@ -20,35 +20,47 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link {%block homeactive%} {%endblock%} " href="{% url 'home' %}">Home</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <li class="nav-item">
+                      <a class="nav-link {% block homeactive %}{% endblock %}" href="{% url 'home' %}">Home</a>
+                  </li>
+                  <li class="nav-item dropdown">
+                      <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                           Main
-                        </a>
-                        <ul class="dropdown-menu">
+                      </a>
+                      <ul class="dropdown-menu">
                           <li><a class="dropdown-item" href="{% url 'rooms' %}">Rooms</a></li>
-                          <li><a class="dropdown-item" href="{% url 'classes' %} ">Classes</a></li>
-                          <li><a class="dropdown-item" href="{% url 'lecturers' %} ">Lecturers</a></li>
+                          <li><a class="dropdown-item" href="{% url 'classes' %}">Classes</a></li>
+                          <li><a class="dropdown-item" href="{% url 'lecturers' %}">Lecturers</a></li>
                           <li><a class="dropdown-item" href="{% url 'courses' %}">Courses</a></li>
-
                           <li><hr class="dropdown-divider"></li>
                           <li><a class="dropdown-item" href="#">Something else here</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                      <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                           Timetable
-                        </a>
-                        <ul class="dropdown-menu">
+                      </a>
+                      <ul class="dropdown-menu">
                           <li><a class="dropdown-item" href="#">View Timetable</a></li>
-                          <li><a class="dropdown-item" href="{%url 'generate_schedule'%}">Generate New Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'generate_schedule' %}">Generate New Timetable</a></li>
                           <li><a class="dropdown-item" href="#">Test Timetable</a></li>
                           <li><hr class="dropdown-divider"></li>
                           <li><a class="dropdown-item" href="#">Delete Timetable</a></li>
-                        </ul>
-                      </li>
-                    <li class="nav-item"><a class="nav-link {%block aboutactive%} {%endblock%} " href="{% url 'about' %}">About</a></li>
-                    <li class="nav-item"><a class="nav-link {%block contactactive%} {%endblock%} " href="{% url 'contact' %}">Contact</a></li>
+                      </ul>
+                  </li>
+                  <li class="nav-item">
+                      <a class="nav-link {% block aboutactive %}{% endblock %}" href="{% url 'about' %}">About</a>
+                  </li>
+                  <li class="nav-item">
+                      <a class="nav-link {% block contactactive %}{% endblock %}" href="{% url 'contact' %}">Contact</a>
+                  </li>
+
+                  {% if user.is_authenticated %}
+                  <li class="nav-item">
+                      <a class="nav-link text-warning" href="{% url 'logout' %}">Logout</a>
+                  </li>
+                  {% endif %}
+              </ul>
 
             </div>
         </div>
