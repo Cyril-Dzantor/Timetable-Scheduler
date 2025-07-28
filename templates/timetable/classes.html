@@ -1,68 +1,77 @@
 {% extends 'home/base.html' %}
-
-{% block title %}Classes{% endblock %}
+{% load static %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <h3 class="mb-4">Classes</h3>
-        <table class="table table-bordered table-hover">
-            <thead class="table-dark">
-                <tr>
-                    <th>Class Code</th>
-                    <th>Level</th>
-                    <th>Department</th>
-                    <th>College</th>
-                    <th>Number of Registered Students</th>
-                    <th>Actions</th> 
-                </tr>
-            </thead>
-            <tbody>
-                {% for class in classes %}
-                <tr>
-                    <td>{{ class.class_code }}</td>
-                    <td>{{ class.level }}</td>
-                    <td>{{ class.department }}</td>
-                    <td>{{ class.college }}</td>
-                    <td>{{ class.class_size }}</td>
-                    <td>
-                        <a href="{% url 'edit_class' class.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                        <a href="{% url 'delete_class' class.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this class?');">Delete</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5">No classes added yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="container mt-4">
+    <div class="row">
+        <!-- Left: Existing classes -->
+        <div class="col-md-7">
+            <h4>All Classes</h4>
+            <table class="table table-bordered table-striped">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Level</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for class in classes %}
+                    <tr>
+                        <td>{{ class.code }}</td>
+                        <td>{{ class.name }}</td>
+                        <td>{{ class.department.name }}</td>
+                        <td>{{ class.level }}</td>
+                        <td>{{ class.size }}</td>
+                        <td>
+                            <a href="{% url 'edit_class' class.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">No classes added yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    <div class="col-md-4">
-        <h4>Add a New Class</h4>
-        <form method="post" class="border p-3 rounded shadow-sm bg-light">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="department" class="form-label">Department</label>
-                <input type="text" class="form-control" id="department" name="department" required>
-            </div>
-            <div class="mb-3">
-                <label for="college" class="form-label">College</label>
-                <input type="text" class="form-control" id="college" name="college" required>
-            </div>
-            <div class="mb-3">
-                <label for="class_code" class="form-label">Class Code</label>
-                <input type="text" class="form-control" id="class_code" name="class_code" required>
-            </div>
-            <div class="mb-3">
-                <label for="level" class="form-label">Level</label>
-                <input type="number" class="form-control" id="level" name="level" required>
-            </div>
-            <div class="mb-3">
-                <label for="class_size" class="form-label">Class Size</label>
-                <input type="number" class="form-control" id="class_size" name="class_size" required>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Add Class</button>
-        </form>
+        <!-- Right: Add class form -->
+        <div class="col-md-5">
+            <h4>Add New Class</h4>
+            <form method="POST" class="border p-3 rounded bg-light">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="code">Class Code</label>
+                    <input type="text" class="form-control" id="code" name="code" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Class Name</label>
+                    <input type="text" class="form-control" id="name" name="name">
+                </div>
+                <div class="form-group">
+                    <label for="department">Department</label>
+                    <select class="form-control" id="department" name="department" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="level">Level</label>
+                    <input type="number" class="form-control" id="level" name="level" required>
+                </div>
+                <div class="form-group">
+                    <label for="size">Class Size</label>
+                    <input type="number" class="form-control" id="size" name="size" required>
+                </div>
+                <button type="submit" class="btn btn-success w-100">Add Class</button>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

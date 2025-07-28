@@ -1,8 +1,6 @@
 from django.shortcuts import render,HttpResponse,redirect
 from django.shortcuts import get_object_or_404
-from .models import Room,Class,Lecturer,Course
-
-
+from .models import Room,Class,Lecturer,Course,Building, RoomType, LabType,Department
 
 
 # Create your views here.
@@ -11,36 +9,75 @@ def timetable(request):
 
 def rooms(request):
     rooms = Room.objects.all()
-    
+    buildings = Building.objects.all()
+    room_types = RoomType.objects.all()
+    lab_types = LabType.objects.all()
+
     if request.method == 'POST':
-        department_building = request.POST.get('department_building')
+        code = request.POST.get('code')
+        building_id = request.POST.get('building')
+        room_type_id = request.POST.get('room_type')
+        lab_type_id = request.POST.get('lab_type')
         capacity = request.POST.get('capacity')
-        room_code = request.POST.get('room_code')
-        room_type = request.POST.get('room_type')
+        dimensions = request.POST.get('dimensions')
+        max_courses = request.POST.get('max_courses')
+        proctors_required = request.POST.get('proctors_required')
+        is_overflow = request.POST.get('is_overflow') == 'on'
 
-        if all([department_building, capacity, room_code, room_type]):
+        if all([code, building_id, room_type_id, capacity, dimensions, max_courses, proctors_required]):
             Room.objects.create(
-                department_building=department_building,
-                capacity=capacity,
-                room_code=room_code,
-                room_type=room_type
+                code=code,
+                building=Building.objects.get(id=building_id),
+                room_type=RoomType.objects.get(id=room_type_id),
+                lab_type=LabType.objects.get(id=lab_type_id) if lab_type_id else None,
+                capacity=int(capacity),
+                dimensions=dimensions,
+                max_courses=int(max_courses),
+                proctors_required=int(proctors_required),
+                is_overflow=is_overflow
             )
-            return redirect('rooms')  
+            return redirect('rooms')
 
-    return render(request, 'timetable/rooms.html', {'rooms': rooms})
+    context = {
+        'rooms': rooms,
+        'buildings': buildings,
+        'room_types': room_types,
+        'lab_types': lab_types,
+    }
+    return render(request, 'timetable/rooms.html', context)
+
 
 def edit_room(request, room_id):
     room = get_object_or_404(Room, id=room_id)
+    buildings = Building.objects.all()
+    room_types = RoomType.objects.all()
+    lab_types = LabType.objects.all()
 
     if request.method == 'POST':
-        room.department_building = request.POST.get('department_building')
+        room.code = request.POST.get('code')
+        building_id = request.POST.get('building')
+        room_type_id = request.POST.get('room_type')
+        lab_type_id = request.POST.get('lab_type')
         room.capacity = request.POST.get('capacity')
-        room.room_code = request.POST.get('room_code')
-        room.room_type = request.POST.get('room_type')
-        room.save()
-        return redirect('rooms')
+        room.dimensions = request.POST.get('dimensions')
+        room.max_courses = request.POST.get('max_courses')
+        room.proctors_required = request.POST.get('proctors_required')
+        room.is_overflow = request.POST.get('is_overflow') == 'on'
 
-    return render(request, 'timetable/edit_room.html', {'room': room})
+        if all([room.code, building_id, room_type_id, room.capacity, room.dimensions, room.max_courses, room.proctors_required]):
+            room.building = Building.objects.get(id=building_id)
+            room.room_type = RoomType.objects.get(id=room_type_id)
+            room.lab_type = LabType.objects.get(id=lab_type_id) if lab_type_id else None
+            room.save()
+            return redirect('rooms')
+
+    context = {
+        'room': room,
+        'buildings': buildings,
+        'room_types': room_types,
+        'lab_types': lab_types,
+    }
+    return render(request, 'timetable/edit_room.html', context)
 
 def delete_room(request, room_id):
     room = get_object_or_404(Room, id=room_id)
@@ -200,41 +237,49 @@ def delete_lecturer(request, lecturer_id):
 
 
 def classes(request):
-    classes = Class.objects.all()
+    classes = Class.objects.select_related('department').all()
+    departments = Department.objects.all()
 
     if request.method == 'POST':
-        class_code = request.POST.get('class_code')
+        code = request.POST.get('code')
+        name = request.POST.get('name') or None
+        department_id = request.POST.get('department')
         level = request.POST.get('level')
-        department = request.POST.get('department')
-        college = request.POST.get('college')
-        class_size = request.POST.get('class_size')
+        size = request.POST.get('size')
 
-        if all([class_code, department, college, class_size]):
-            Class.objects.create(
-                class_code=class_code,
-                level = level,
-                department=department,
-                college=college,
-                class_size=class_size
-            )
-            return redirect('classes')  
-        
+        Class.objects.create(
+            code=code,
+            name=name,
+            department_id=department_id,
+            level=level,
+            size=size
+        )
+        return redirect('classes')
 
-    return render(request, 'timetable/classes.html', {'classes': classes})
+    return render(request, 'timetable/classes.html', {
+        'classes': classes,
+        'departments': departments
+    })
 
+# Edit a specific class
 def edit_class(request, class_id):
     class_obj = get_object_or_404(Class, id=class_id)
+    departments = Department.objects.all()
 
     if request.method == 'POST':
-        class_obj.class_code = request.POST.get('class_code')
+        class_obj.code = request.POST.get('code')
+        class_obj.name = request.POST.get('name') or None
+        class_obj.department_id = request.POST.get('department')
         class_obj.level = request.POST.get('level')
-        class_obj.department = request.POST.get('department')
-        class_obj.college = request.POST.get('college')
-        class_obj.class_size = request.POST.get('class_size')
+        class_obj.size = request.POST.get('size')
         class_obj.save()
         return redirect('classes')
 
-    return render(request, 'timetable/edit_class.html', {'class': class_obj})
+    return render(request, 'timetable/edit_class.html', {
+        'class': class_obj,
+        'departments': departments
+    })
+
 
 def delete_class(request, class_id):
     class_obj = get_object_or_404(Class, id=class_id)
