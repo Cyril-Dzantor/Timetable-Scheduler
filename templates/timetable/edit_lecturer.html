@@ -1,60 +1,58 @@
 {% extends 'home/base.html' %}
+{% block title %}Edit Lecturer{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h2 class="mb-4">Edit Lecturer</h2>
+<div class="container mt-4">
+    <h3 class="mb-4">Edit Lecturer - {{ lecturer.name }}</h3>
 
-    <form method="post">
+    <form method="post" class="border p-4 rounded shadow-sm bg-light">
         {% csrf_token %}
-
         <div class="mb-3">
-            <label for="name" class="form-label">Full Name</label>
+            <label for="name" class="form-label">Lecturer Name</label>
             <input type="text" class="form-control" id="name" name="name" value="{{ lecturer.name }}" required>
         </div>
-
         <div class="mb-3">
             <label for="department" class="form-label">Department</label>
-            <input type="text" class="form-control" id="department" name="department" value="{{ lecturer.department }}">
+            <select class="form-select" id="department" name="department" required>
+                {% for department in all_departments %}
+                    <option value="{{ department.id }}" {% if department.id == lecturer.department.id %}selected{% endif %}>
+                        {{ department.name }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
-
         <div class="mb-3">
-            <label for="office_location" class="form-label">Office Location</label>
-            <input type="text" class="form-control" id="office_location" name="office_location" value="{{ lecturer.office_location }}">
+            <label for="max_courses" class="form-label">Max Courses</label>
+            <input type="number" class="form-control" id="max_courses" name="max_courses" value="{{ lecturer.max_courses }}" min="1">
         </div>
-
         <div class="mb-3">
-            <label for="max_courses" class="form-label">Maximum Courses</label>
-            <input type="number" class="form-control" id="max_courses" name="max_courses" value="{{ lecturer.max_courses }}">
+            <label for="availability" class="form-label">Teaching Availability</label>
+            <textarea class="form-control" id="availability" name="availability" rows="3">{% if lecturer.availability %}{{ lecturer.availability|safe }}{% endif %}</textarea>
         </div>
-
         <div class="mb-3">
-            <label for="availability" class="form-label">Availability (JSON or text)</label>
-            <textarea class="form-control" id="availability" name="availability" rows="4">{{ lecturer.availability|default:"" }}</textarea>
-            <div class="form-text">
-                Enter preferred days and time slots as JSON (e.g. <code>{"Mon": ["8-10"], "Wed": ["10-12"]}</code>) or plain text.
-            </div>
+            <label for="proctor_availability" class="form-label">Proctor Availability</label>
+            <textarea class="form-control" id="proctor_availability" name="proctor_availability" rows="3">{% if lecturer.proctor_availability %}{{ lecturer.proctor_availability|safe }}{% endif %}</textarea>
         </div>
-
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="is_proctor" name="is_proctor" {% if lecturer.is_proctor %}checked{% endif %}>
+            <label class="form-check-label" for="is_proctor">Is Proctor</label>
+        </div>
         <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if lecturer.is_active %}checked{% endif %}>
             <label class="form-check-label" for="is_active">Is Active</label>
         </div>
-
         <div class="mb-3">
-            <label for="courses" class="form-label">Assigned Courses</label>
-            <select id="courses" name="courses" class="form-select" multiple>
+            <label for="courses" class="form-label">Courses</label>
+            <select multiple class="form-select" id="courses" name="courses">
                 {% for course in all_courses %}
                     <option value="{{ course.id }}" {% if course in lecturer.courses.all %}selected{% endif %}>
                         {{ course.code }} - {{ course.title }}
                     </option>
                 {% endfor %}
             </select>
-            <div class="form-text">
-                Hold down the Ctrl (Windows) or Command (Mac) key to select multiple.
-            </div>
         </div>
-
-        <button type="submit" class="btn btn-primary">Update Lecturer</button>
-        <a href="{% url 'lecturers' %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-success w-100">Update Lecturer</button>
+        <a href="{% url 'lecturers' %}" class="btn btn-secondary w-100 mt-2">Cancel</a>
     </form>
 </div>
 {% endblock %}

@@ -3,35 +3,71 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h3 class="mb-4">Edit Course - {{ course.course_code }}</h3>
+    <h3 class="mb-4">Edit Course - {{ course.code }}</h3>
 
     <form method="post" class="border p-4 rounded shadow-sm bg-light">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="course_code" class="form-label">Course Code</label>
-            <input type="text" class="form-control" id="course_code" name="course_code" value="{{ course.course_code }}" required>
+            <label for="code" class="form-label">Course Code</label>
+            <input type="text" class="form-control" id="code" name="code" value="{{ course.code }}" required>
         </div>
         <div class="mb-3">
-            <label for="course_title" class="form-label">Course Title</label>
-            <input type="text" class="form-control" id="course_title" name="course_title" value="{{ course.course_title }}" required>
+            <label for="title" class="form-label">Course Title</label>
+            <input type="text" class="form-control" id="title" name="title" value="{{ course.title }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="course_type" class="form-label">Course Type</label>
+            <select class="form-select" id="course_type" name="course_type" required>
+                {% for course_type in all_course_types %}
+                    <option value="{{ course_type.id }}" 
+                        {% if course_type.id == course.course_type.id %}selected{% endif %}>
+                        {{ course_type.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="department" class="form-label">Department</label>
+            <select class="form-select" id="department" name="department" required>
+                {% for department in all_departments %}
+                    <option value="{{ department.id }}"
+                        {% if department.id == course.department.id %}selected{% endif %}>
+                        {{ department.name }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
         <div class="mb-3">
             <label for="credit_hours" class="form-label">Credit Hours</label>
             <input type="number" class="form-control" id="credit_hours" name="credit_hours" value="{{ course.credit_hours }}" required>
         </div>
         <div class="mb-3">
-            <label for="department" class="form-label">Department</label>
-            <input type="text" class="form-control" id="department" name="department" value="{{ course.department }}" required>
+            <label for="enrollment" class="form-label">Enrollment</label>
+            <input type="number" class="form-control" id="enrollment" name="enrollment" value="{{ course.enrollment }}" required>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="requires_lab" name="requires_lab"
+                {% if course.requires_lab %}checked{% endif %}>
+            <label class="form-check-label" for="requires_lab">Requires Lab</label>
         </div>
         <div class="mb-3">
-            <label for="students_enrolled" class="form-label">Students Enrolled</label>
-            <input type="number" class="form-control" id="students_enrolled" name="students_enrolled" value="{{ course.students_enrolled }}" required>
+            <label for="lab_type" class="form-label">Lab Type (if required)</label>
+            <select class="form-select" id="lab_type" name="lab_type">
+                <option value="">Select Lab Type</option>
+                {% for lab_type in all_lab_types %}
+                    <option value="{{ lab_type.id }}"
+                        {% if course.lab_type and lab_type.id == course.lab_type.id %}selected{% endif %}>
+                        {{ lab_type.name }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
         <div class="mb-3">
             <label for="lecturers" class="form-label">Lecturers</label>
             <select multiple class="form-select" id="lecturers" name="lecturers">
                 {% for lecturer in all_lecturers %}
-                    <option value="{{ lecturer.id }}" {% if lecturer in course.lecturers.all %}selected{% endif %}>
+                    <option value="{{ lecturer.id }}" 
+                        {% if lecturer in course.lecturers.all %}selected{% endif %}>
                         {{ lecturer.name }}
                     </option>
                 {% endfor %}
@@ -40,22 +76,11 @@
         <div class="mb-3">
             <label for="classes" class="form-label">Classes</label>
             <select multiple class="form-select" id="classes" name="classes">
-                {% for cls in all_classes %}
-                    <option value="{{ cls.id }}" {% if cls in course.classes.all %}selected{% endif %}>
-                        {{ cls.class_code }}
+                {% for class in all_classes %}
+                    <option value="{{ class.id }}" 
+                        {% if class in course.classes.all %}selected{% endif %}>
+                        {{ class.code }} ({{ class.department }})
                     </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="mb-3">
-            <label for="course_prerequisites" class="form-label">Prerequisites</label>
-            <select multiple class="form-select" id="course_prerequisites" name="course_prerequisites">
-                {% for prereq in all_courses %}
-                    {% if prereq.id != course.id %}
-                        <option value="{{ prereq.id }}" {% if prereq in course.course_prerequisites.all %}selected{% endif %}>
-                            {{ prereq.course_code }}
-                        </option>
-                    {% endif %}
                 {% endfor %}
             </select>
         </div>

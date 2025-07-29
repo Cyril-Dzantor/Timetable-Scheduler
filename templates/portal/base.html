@@ -15,6 +15,11 @@
                     {% if user.is_authenticated %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'portal:portal_profile' %}">Profile</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}">Logout</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'complaint_list' %}">My Complaints</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'file_complaint' %}">Submit Complaint</a></li>
+                        {% if user.is_admin %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'admin_complaints' %}">Admin Inbox</a></li>
+                        {% endif %}
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
                     {% endif %}

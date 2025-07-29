@@ -1,0 +1,14 @@
+<h2>Respond to Complaint</h2>
+<form method="post">{% csrf_token %}
+  <p><strong>Title:</strong> {{ complaint.title }}</p>
+  <p><strong>From:</strong> {{ complaint.user.email }}</p>
+  <p>{{ complaint.message }}</p>
+  <textarea name="response" rows="5" required>{{ complaint.response }}</textarea><br>
+  <label>Status:</label>
+  <select name="status">
+    <option value="Pending" {% if complaint.status == "Pending" %}selected{% endif %}>Pending</option>
+    <option value="Declined" {% if complaint.status == "Declined" %}selected{% endif %}>Declined</option>
+    <option value="Completed" {% if complaint.status == "Completed" %}selected{% endif %}>Completed</option>
+  </select><br><br>
+  <button type="submit">Submit Response</button>
+</form>

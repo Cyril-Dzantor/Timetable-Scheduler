@@ -2,111 +2,135 @@
 {% block title %}Courses{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <h3 class="mb-4">Courses</h3>
-        <div class="alert alert-warning" role="alert">
-            <p>Prerequisite courses should be assigned by editing each course after every course has been uploaded into the system.</p>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Courses Table Section -->
+        <div class="col-lg-8 col-md-12 mb-4">
+            <h3 class="mb-4">Courses</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Code</th>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Department</th>
+                            <th>Credits</th>
+                            <th>Enrollment</th>
+                            <th>Lab Required</th>
+                            <th>Lecturers</th>
+                            <th>Classes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course in courses %}
+                        <tr>
+                            <td>{{ course.code }}</td>
+                            <td>{{ course.title }}</td>
+                            <td>{{ course.course_type }}</td>
+                            <td>{{ course.department }}</td>
+                            <td>{{ course.credit_hours }}</td>
+                            <td>{{ course.enrollment }}</td>
+                            <td>
+                                {% if course.requires_lab %}
+                                    Yes ({{ course.lab_type|default:"No type specified" }})
+                                {% else %}
+                                    No
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for lecturer in course.lecturers.all %}
+                                    {{ lecturer.name }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for class in course.classes.all %}
+                                    {{ class.code }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <a href="{% url 'edit_course' course.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <a href="{% url 'delete_course' course.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this course?');">Delete</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10">No courses added yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <table class="table table-bordered table-hover">
-            <thead class="table-dark">
-                <tr>
-                    <th>Course Code</th>
-                    <th>Title</th>
-                    <th>Credit Hours</th>
-                    <th>Department</th>
-                    <th>Students Enrolled</th>
-                    <th>Lecturers</th>
-                    <th>Classes</th>
-                    <th>Prerequisites</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for course in courses %}
-                <tr>
-                    <td>{{ course.course_code }}</td>
-                    <td>{{ course.course_title }}</td>
-                    <td>{{ course.credit_hours }}</td>
-                    <td>{{ course.department }}</td>
-                    <td>{{ course.students_enrolled }}</td>
-                    <td>
-                        {% for lecturer in course.lecturers.all %}
-                            {{ lecturer.name }}{% if not forloop.last %}, {% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        {% for cls in course.classes.all %}
-                            {{ cls.class_code }}{% if not forloop.last %}, {% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        {% for prereq in course.course_prerequisites.all %}
-                            {{ prereq.course_code }}{% if not forloop.last %}, {% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        <a href="{% url 'edit_course' course.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                        <a href="{% url 'delete_course' course.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this course?');">Delete</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="9">No courses added yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 
-    <div class="col-md-4">
-        <h4>Add a New Course</h4>
-        <form method="post" class="border p-3 rounded shadow-sm bg-light">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="course_code" class="form-label">Course Code</label>
-                <input type="text" class="form-control" id="course_code" name="course_code" required>
-            </div>
-            <div class="mb-3">
-                <label for="course_title" class="form-label">Course Title</label>
-                <input type="text" class="form-control" id="course_title" name="course_title" required>
-            </div>
-            <div class="mb-3">
-                <label for="credit_hours" class="form-label">Credit Hours</label>
-                <input type="number" class="form-control" id="credit_hours" name="credit_hours" required>
-            </div>
-            <div class="mb-3">
-                <label for="department" class="form-label">Department</label>
-                <input type="text" class="form-control" id="department" name="department" required>
-            </div>
-            <div class="mb-3">
-                <label for="students_enrolled" class="form-label">Students Enrolled</label>
-                <input type="number" class="form-control" id="students_enrolled" name="students_enrolled" required>
-            </div>
-            <div class="mb-3">
-                <label for="lecturers" class="form-label">Lecturers</label>
-                <select multiple class="form-select" id="lecturers" name="lecturers">
-                    {% for lecturer in all_lecturers %}
-                        <option value="{{ lecturer.id }}">{{ lecturer.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="classes" class="form-label">Classes</label>
-                <select multiple class="form-select" id="classes" name="classes">
-                    {% for cls in all_classes %}
-                        <option value="{{ cls.id }}">{{ cls.class_code }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="course_prerequisites" class="form-label">Prerequisites</label>
-                <select multiple class="form-select" id="course_prerequisites" name="course_prerequisites">
-                    {% for course in all_courses %}
-                        <option value="{{ course.id }}">{{ course.course_code }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Add Course</button>
-        </form>
+        <!-- Add Course Form Section -->
+        <div class="col-lg-4 col-md-12">
+            <h4 class="mb-3">Add a New Course</h4>
+            <form method="post" class="border p-3 rounded shadow-sm bg-light">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="code" class="form-label">Course Code</label>
+                    <input type="text" class="form-control" id="code" name="code" required>
+                </div>
+                <div class="mb-3">
+                    <label for="title" class="form-label">Course Title</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+                <div class="mb-3">
+                    <label for="course_type" class="form-label">Course Type</label>
+                    <select class="form-select" id="course_type" name="course_type" required>
+                        {% for course_type in all_course_types %}
+                            <option value="{{ course_type.id }}">{{ course_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="department" class="form-label">Department</label>
+                    <select class="form-select" id="department" name="department" required>
+                        {% for department in all_departments %}
+                            <option value="{{ department.id }}">{{ department.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="credit_hours" class="form-label">Credit Hours</label>
+                    <input type="number" class="form-control" id="credit_hours" name="credit_hours" required>
+                </div>
+                <div class="mb-3">
+                    <label for="enrollment" class="form-label">Enrollment</label>
+                    <input type="number" class="form-control" id="enrollment" name="enrollment" required>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="requires_lab" name="requires_lab">
+                    <label class="form-check-label" for="requires_lab">Requires Lab</label>
+                </div>
+                <div class="mb-3">
+                    <label for="lab_type" class="form-label">Lab Type (if required)</label>
+                    <select class="form-select" id="lab_type" name="lab_type">
+                        <option value="">Select Lab Type</option>
+                        {% for lab_type in all_lab_types %}
+                            <option value="{{ lab_type.id }}">{{ lab_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="lecturers" class="form-label">Lecturers</label>
+                    <select multiple class="form-select" id="lecturers" name="lecturers">
+                        {% for lecturer in all_lecturers %}
+                            <option value="{{ lecturer.id }}">{{ lecturer.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="classes" class="form-label">Classes</label>
+                    <select multiple class="form-select" id="classes" name="classes">
+                        {% for class in all_classes %}
+                            <option value="{{ class.id }}">{{ class.code }} ({{ class.department }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Add Course</button>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import authenticate
-from .models import StudentProfile, LecturerProfile, AdminProfile,User
+from .models import StudentProfile, LecturerProfile, AdminProfile,User,Complaint 
 
 class CustomLoginForm(forms.Form):
     email = forms.EmailField(label="School Email", required=True)
@@ -128,3 +128,8 @@ class CustomRegisterForm(forms.ModelForm):
                     secondary_email=self.cleaned_data['secondary_email']
                 )
         return user
+
+class ComplaintForm(forms.ModelForm):
+    class Meta:
+        model = Complaint
+        fields = ['title', 'message']

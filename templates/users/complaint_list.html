@@ -1,0 +1,11 @@
+<h2>My Complaints</h2>
+<ul>
+  {% for c in complaints %}
+    <li>
+      <strong>{{ c.title }}</strong> - {{ c.status }}<br>
+      <small>Submitted: {{ c.submitted_at }}</small><br>
+      <p>{{ c.message }}</p>
+      {% if c.response %}<p><strong>Admin Response:</strong> {{ c.response }}</p>{% endif %}
+    </li>
+  {% endfor %}
+</ul>

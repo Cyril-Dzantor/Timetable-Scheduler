@@ -11,8 +11,8 @@
                     <th>Name</th>
                     <th>Department</th>
                     <th>Courses</th>
-                    <th>Office Location</th>
                     <th>Max Courses</th>
+                    <th>Proctor</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -21,14 +21,14 @@
                 {% for lecturer in lecturers %}
                 <tr>
                     <td>{{ lecturer.name }}</td>
-                    <td>{{ lecturer.department }}</td>
+                    <td>{{ lecturer.department.name }}</td>
                     <td>
                         {% for course in lecturer.courses.all %}
-                            {{ course.course_code }}{% if not forloop.last %}, {% endif %}
+                            {{ course.code }}{% if not forloop.last %}, {% endif %}
                         {% empty %}None{% endfor %}
                     </td>
-                    <td>{{ lecturer.office_location|default:"N/A" }}</td>
                     <td>{{ lecturer.max_courses }}</td>
+                    <td>{{ lecturer.is_proctor|yesno:"Yes,No" }}</td>
                     <td>{{ lecturer.is_active|yesno:"Active,Inactive" }}</td>
                     <td>
                         <a href="{% url 'edit_lecturer' lecturer.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
@@ -40,7 +40,6 @@
                 {% endfor %}
             </tbody>
         </table>
-        <p class="text-muted mt-3">Note: Courses must be assigned to lecturers later by editing each lecturer.</p>
     </div>
 
     <div class="col-md-4">
@@ -53,28 +52,46 @@
             </div>
             <div class="mb-3">
                 <label for="department" class="form-label">Department</label>
-                <input type="text" class="form-control" id="department" name="department" required>
-            </div>
-            <div class="mb-3">
-                <label for="office_location" class="form-label">Office Location</label>
-                <input type="text" class="form-control" id="office_location" name="office_location">
+                <select class="form-select" id="department" name="department" required>
+                    {% for department in all_departments %}
+                        <option value="{{ department.id }}">{{ department.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="mb-3">
                 <label for="max_courses" class="form-label">Max Courses</label>
                 <input type="number" class="form-control" id="max_courses" name="max_courses" value="4" min="1">
             </div>
             <div class="mb-3">
-                <label for="availability" class="form-label">Availability (JSON or text)</label>
-                <textarea class="form-control" id="availability" name="availability" rows="4"></textarea>
+                <label for="availability" class="form-label">Teaching Availability</label>
+                <textarea class="form-control" id="availability" name="availability" rows="3" placeholder='{"days": ["Mon", "Wed"], "times": ["8-10", "14-16"]}'></textarea>
                 <div class="form-text">
-                    Example: <code>{"Mon": ["8-10"], "Wed": ["10-12"]}</code>
+                    Enter as JSON or plain text
                 </div>
+            </div>
+            <div class="mb-3">
+                <label for="proctor_availability" class="form-label">Proctor Availability</label>
+                <textarea class="form-control" id="proctor_availability" name="proctor_availability" rows="3" placeholder='{"days": ["Tue", "Thu"], "times": ["10-12"]}'></textarea>
+                <div class="form-text">
+                    Enter as JSON or plain text
+                </div>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="is_proctor" name="is_proctor">
+                <label class="form-check-label" for="is_proctor">Is Proctor</label>
             </div>
             <div class="mb-3 form-check">
                 <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
                 <label class="form-check-label" for="is_active">Is Active</label>
             </div>
-            <p class="text-muted">Courses can be assigned after adding the lecturer.</p>
+            <div class="mb-3">
+                <label for="courses" class="form-label">Courses (optional)</label>
+                <select multiple class="form-select" id="courses" name="courses">
+                    {% for course in all_courses %}
+                        <option value="{{ course.id }}">{{ course.code }} - {{ course.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <button type="submit" class="btn btn-primary w-100">Add Lecturer</button>
         </form>
     </div>

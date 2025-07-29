@@ -1,6 +1,6 @@
 from django.shortcuts import render,HttpResponse,redirect
 from django.shortcuts import get_object_or_404
-from .models import Room,Class,Lecturer,Course,Building, RoomType, LabType,Department
+from .models import Room,Class,Lecturer,Course,Building, RoomType, LabType,Department,CourseType
 
 
 # Create your views here.
@@ -89,27 +89,34 @@ def courses(request):
     courses = Course.objects.all()
     all_lecturers = Lecturer.objects.all()
     all_classes = Class.objects.all()
-    all_courses = Course.objects.all()
+    all_departments = Department.objects.all()
+    all_course_types = CourseType.objects.all()
+    all_lab_types = LabType.objects.all()
 
     if request.method == 'POST':
-        course_code = request.POST.get('course_code')
-        course_title = request.POST.get('course_title')
+        code = request.POST.get('code')
+        title = request.POST.get('title')
+        course_type_id = request.POST.get('course_type')
+        department_id = request.POST.get('department')
         credit_hours = request.POST.get('credit_hours')
-        department = request.POST.get('department')
-        students_enrolled = request.POST.get('students_enrolled')
+        enrollment = request.POST.get('enrollment')
+        requires_lab = request.POST.get('requires_lab') == 'on'
+        lab_type_id = request.POST.get('lab_type')
 
         course = Course.objects.create(
-            course_code=course_code,
-            course_title=course_title,
+            code=code,
+            title=title,
+            course_type_id=course_type_id,
+            department_id=department_id,
             credit_hours=credit_hours,
-            department=department,
-            students_enrolled=students_enrolled
+            enrollment=enrollment,
+            requires_lab=requires_lab,
+            lab_type_id=lab_type_id if lab_type_id else None
         )
 
         # Set relationships
         course.lecturers.set(request.POST.getlist('lecturers'))
         course.classes.set(request.POST.getlist('classes'))
-        course.course_prerequisites.set(request.POST.getlist('course_prerequisites'))
 
         return redirect('courses')
 
@@ -117,26 +124,32 @@ def courses(request):
         'courses': courses,
         'all_lecturers': all_lecturers,
         'all_classes': all_classes,
-        'all_courses': all_courses
+        'all_departments': all_departments,
+        'all_course_types': all_course_types,
+        'all_lab_types': all_lab_types
     })
 
 def edit_course(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     all_lecturers = Lecturer.objects.all()
     all_classes = Class.objects.all()
-    all_courses = Course.objects.exclude(id=course_id)
+    all_departments = Department.objects.all()
+    all_course_types = CourseType.objects.all()
+    all_lab_types = LabType.objects.all()
 
     if request.method == 'POST':
-        course.course_code = request.POST.get('course_code')
-        course.course_title = request.POST.get('course_title')
+        course.code = request.POST.get('code')
+        course.title = request.POST.get('title')
+        course.course_type_id = request.POST.get('course_type')
+        course.department_id = request.POST.get('department')
         course.credit_hours = request.POST.get('credit_hours')
-        course.department = request.POST.get('department')
-        course.students_enrolled = request.POST.get('students_enrolled')
+        course.enrollment = request.POST.get('enrollment')
+        course.requires_lab = request.POST.get('requires_lab') == 'on'
+        course.lab_type_id = request.POST.get('lab_type') if request.POST.get('lab_type') else None
         course.save()
 
         course.lecturers.set(request.POST.getlist('lecturers'))
         course.classes.set(request.POST.getlist('classes'))
-        course.course_prerequisites.set(request.POST.getlist('course_prerequisites'))
 
         return redirect('courses')
 
@@ -144,7 +157,9 @@ def edit_course(request, course_id):
         'course': course,
         'all_lecturers': all_lecturers,
         'all_classes': all_classes,
-        'all_courses': all_courses
+        'all_departments': all_departments,
+        'all_course_types': all_course_types,
+        'all_lab_types': all_lab_types
     })
 
 def delete_course(request, course_id):
@@ -156,78 +171,87 @@ def delete_course(request, course_id):
 
 import json
 
+
 def lecturers(request):
-    lecturers = Lecturer.objects.all()
+    lecturers = Lecturer.objects.all().select_related('department')
+    all_departments = Department.objects.all()
     all_courses = Course.objects.all()
 
     if request.method == 'POST':
         name = request.POST.get('name')
-        department = request.POST.get('department')
-        office_location = request.POST.get('office_location')
-        max_courses = request.POST.get('max_courses') or 4
-        availability_raw = request.POST.get('availability')
-        is_active = True if request.POST.get('is_active') == 'on' else False
+        department_id = request.POST.get('department')
+        max_courses = request.POST.get('max_courses', 4)
+        is_active = request.POST.get('is_active') == 'on'
+        is_proctor = request.POST.get('is_proctor') == 'on'
 
+        # Handle JSON fields
         availability = None
-        if availability_raw:
-            try:
-                availability = json.loads(availability_raw)
-            except json.JSONDecodeError:
-                availability = {"note": availability_raw}
+        proctor_availability = None
+        
+        try:
+            availability = json.loads(request.POST.get('availability', '{}'))
+        except json.JSONDecodeError:
+            availability = {"note": request.POST.get('availability')}
+            
+        try:
+            proctor_availability = json.loads(request.POST.get('proctor_availability', '{}'))
+        except json.JSONDecodeError:
+            proctor_availability = {"note": request.POST.get('proctor_availability')}
 
         lecturer = Lecturer.objects.create(
             name=name,
-            department=department,
-            office_location=office_location,
+            department_id=department_id,
             max_courses=max_courses,
+            is_active=is_active,
+            is_proctor=is_proctor,
             availability=availability,
-            is_active=is_active
+            proctor_availability=proctor_availability
         )
 
-        selected_courses = request.POST.getlist('courses')
-        if selected_courses:
-            lecturer.courses.set(selected_courses)
+        # Set many-to-many relationships
+        lecturer.courses.set(request.POST.getlist('courses'))
 
         return redirect('lecturers')
 
     return render(request, 'timetable/lecturers.html', {
         'lecturers': lecturers,
+        'all_departments': all_departments,
         'all_courses': all_courses
     })
 
-
 def edit_lecturer(request, lecturer_id):
     lecturer = get_object_or_404(Lecturer, id=lecturer_id)
+    all_departments = Department.objects.all()
     all_courses = Course.objects.all()
 
     if request.method == 'POST':
         lecturer.name = request.POST.get('name')
-        lecturer.department = request.POST.get('department')
-        lecturer.office_location = request.POST.get('office_location')
-        lecturer.max_courses = request.POST.get('max_courses') or 4
-        lecturer.is_active = True if request.POST.get('is_active') == 'on' else False
+        lecturer.department_id = request.POST.get('department')
+        lecturer.max_courses = request.POST.get('max_courses', 4)
+        lecturer.is_active = request.POST.get('is_active') == 'on'
+        lecturer.is_proctor = request.POST.get('is_proctor') == 'on'
 
-        availability_raw = request.POST.get('availability')
-        if availability_raw:
-            try:
-                lecturer.availability = json.loads(availability_raw)
-            except json.JSONDecodeError:
-                lecturer.availability = {"note": availability_raw}
-        else:
-            lecturer.availability = None
+        # Handle JSON fields
+        try:
+            lecturer.availability = json.loads(request.POST.get('availability', '{}'))
+        except json.JSONDecodeError:
+            lecturer.availability = {"note": request.POST.get('availability')}
+            
+        try:
+            lecturer.proctor_availability = json.loads(request.POST.get('proctor_availability', '{}'))
+        except json.JSONDecodeError:
+            lecturer.proctor_availability = {"note": request.POST.get('proctor_availability')}
 
         lecturer.save()
-
-        selected_courses = request.POST.getlist('courses')
-        lecturer.courses.set(selected_courses)
+        lecturer.courses.set(request.POST.getlist('courses'))
 
         return redirect('lecturers')
 
     return render(request, 'timetable/edit_lecturer.html', {
         'lecturer': lecturer,
+        'all_departments': all_departments,
         'all_courses': all_courses
     })
-
 
 
 def delete_lecturer(request, lecturer_id):

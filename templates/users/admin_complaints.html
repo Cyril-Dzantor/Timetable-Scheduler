@@ -1,0 +1,9 @@
+<h2>All User Complaints</h2>
+<ul>
+  {% for c in complaints %}
+    <li>
+      <strong>{{ c.title }}</strong> by {{ c.user.email }} - {{ c.status }}<br>
+      <a href="{% url 'respond_complaint' c.id %}">Respond</a>
+    </li>
+  {% endfor %}
+</ul>

@@ -47,3 +47,21 @@ class AdminProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.staff_id})"
+
+class Complaint(models.Model):
+    REQUEST_STATUS = [
+        ('Pending', 'Pending'),
+        ('Declined', 'Declined'),
+        ('Completed', 'Completed'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    status = models.CharField(max_length=10, choices=REQUEST_STATUS, default='Pending')
+    response = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.title} ({self.status})"

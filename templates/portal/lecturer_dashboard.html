@@ -36,6 +36,8 @@
     </div>
 </div>
 
+
+
 <!-- Exam Invigilation -->
 <div class="card mb-4">
     <div class="card-header bg-warning text-dark">Exam Invigilation Duties</div>
@@ -68,4 +70,14 @@
         {% endif %}
     </div>
 </div>
+
+<!-- My Complaints -->
+<div class="card mb-4">
+    <div class="card-header bg-danger text-white">My Complaints</div>
+    <div class="card-body">
+        <a href="{% url 'file_complaint' %}" class="btn btn-sm btn-outline-light mb-2">Submit New Complaint</a>
+        <a href="{% url 'complaint_list' %}" class="btn btn-sm btn-outline-light mb-2">View Complaint Status</a>
+    </div>
+</div>
+
 {% endblock %}
