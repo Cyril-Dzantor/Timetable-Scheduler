@@ -1,7 +1,7 @@
 {% extends 'portal/base.html' %}
 {% block title %}Lecturer Dashboard{% endblock %}
 {% block content %}
-<h2 class="mb-4">Welcome, {{ request.user.first_name }}</h2>
+<h2 class="mb-4">Welcome, {{ request.user.username }}</h2>
 
 <!-- Lectures -->
 <div class="card mb-4">

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from datetime import datetime
 
 class User(AbstractUser):
     email = models.EmailField(_('school email'), unique=True)
@@ -62,6 +63,39 @@ class Complaint(models.Model):
     response = models.TextField(blank=True, null=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(blank=True, null=True)
+
+    def get_conversation(self):
+        conversation = []
+        # Add original message
+        conversation.append({
+            'sender': self.user,
+            'message': self.message,
+            'timestamp': self.submitted_at,
+            'is_admin': False
+        })
+        
+        # Parse responses if they exist
+        if self.response:
+            for part in self.response.split('\n\n---\n\n'):
+                if '):\n' in part:
+                    sender_part, message = part.split('):\n', 1)
+                    sender_name = sender_part.split(' (')[0]
+                    timestamp_str = sender_part.split(' (')[1]
+                    try:
+                        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M')
+                    except ValueError:
+                        timestamp = self.responded_at
+                    
+                    # Determine if sender is admin (you may need to adjust this logic)
+                    is_admin = "Admin" in sender_name
+                    conversation.append({
+                        'sender_name': sender_name,
+                        'message': message,
+                        'timestamp': timestamp,
+                        'is_admin': is_admin
+                    })
+        
+        return conversation
 
     def __str__(self):
         return f"{self.user.email} - {self.title} ({self.status})"

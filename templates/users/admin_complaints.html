@@ -1,9 +1,221 @@
-<h2>All User Complaints</h2>
-<ul>
-  {% for c in complaints %}
-    <li>
-      <strong>{{ c.title }}</strong> by {{ c.user.email }} - {{ c.status }}<br>
-      <a href="{% url 'respond_complaint' c.id %}">Respond</a>
-    </li>
-  {% endfor %}
-</ul>
+{% extends 'home/base.html' %}
+
+{% block title %}All User Complaints{% endblock %}
+
+{% block content %}
+<div class="admin-complaints-container">
+  <h1 class="admin-complaints-header">User Complaints Inbox</h1>
+  
+  <div class="complaints-list">
+    {% for c in complaints %}
+    <div class="complaint-card {% if c.status == 'Pending' %}status-pending{% elif c.status == 'Completed' %}status-completed{% else %}status-declined{% endif %}">
+      <div class="complaint-header">
+        <a href="{% url 'complaint_detail' c.id %}" class="complaint-title">{{ c.title }}</a>
+        <span class="complaint-status">{{ c.status }}</span>
+      </div>
+      
+      <div class="complaint-meta">
+        <span class="complaint-user">
+          <i class="fas fa-user"></i> {{ c.user.email }}
+        </span>
+        <span class="complaint-date">
+          <i class="fas fa-clock"></i> 
+          {% if c.responded_at %}
+            Last updated: {{ c.responded_at|date:"M d, Y H:i" }}
+          {% else %}
+            Submitted: {{ c.submitted_at|date:"M d, Y H:i" }}
+          {% endif %}
+        </span>
+      </div>
+      
+      <div class="complaint-preview">
+        <p class="original-message">
+          <strong>Original:</strong> {{ c.message|truncatechars:100 }}
+        </p>
+        {% if c.response %}
+        <p class="latest-response">
+          <strong>Latest:</strong> {{ c.response|truncatewords:15 }}
+        </p>
+        {% endif %}
+      </div>
+      
+      <div class="complaint-actions">
+        <a href="{% url 'complaint_detail' c.id %}" class="respond-btn">
+          <i class="fas fa-reply"></i> 
+          {% if c.response %}Continue Conversation{% else %}Respond{% endif %}
+        </a>
+        <span class="message-count">
+          <i class="fas fa-comment-alt"></i> 
+          {% if c.response %}
+            {{ c.response|linebreaksbr|striptags|wordcount|add:1 }} messages
+          {% else %}
+            1 message
+          {% endif %}
+        </span>
+      </div>
+    </div>
+    {% empty %}
+    <div class="no-complaints">
+      <i class="fas fa-inbox"></i>
+      <p>No complaints found</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  /* Base Styles */
+  .admin-complaints-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  
+  .admin-complaints-header {
+    color: #2c3e50;
+    margin-bottom: 25px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ecf0f1;
+  }
+  
+  /* Complaint Card Styles */
+  .complaint-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .complaint-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+  
+  .complaint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .complaint-title {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 18px;
+    text-decoration: none;
+  }
+  
+  .complaint-title:hover {
+    text-decoration: underline;
+  }
+  
+  .complaint-status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  /* Status Colors */
+  .status-pending .complaint-status {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+  
+  .status-completed .complaint-status {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  .status-declined .complaint-status {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  /* Meta Information */
+  .complaint-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: #7f8c8d;
+  }
+  
+  .complaint-meta i {
+    margin-right: 5px;
+  }
+  
+  /* Complaint Preview */
+  .complaint-preview {
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .complaint-preview p {
+    margin: 5px 0;
+  }
+  
+  .original-message, .latest-response {
+    color: #495057;
+  }
+  
+  /* Action Buttons */
+  .complaint-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+  }
+  
+  .respond-btn {
+    background-color: #3498db;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.2s;
+  }
+  
+  .respond-btn:hover {
+    background-color: #2980b9;
+  }
+  
+  .respond-btn i {
+    margin-right: 5px;
+  }
+  
+  .message-count {
+    color: #6c757d;
+    font-size: 13px;
+  }
+  
+  .message-count i {
+    margin-right: 5px;
+  }
+  
+  /* Empty State */
+  .no-complaints {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+  }
+  
+  .no-complaints i {
+    font-size: 50px;
+    margin-bottom: 15px;
+    color: #bdc3c7;
+  }
+  
+  .no-complaints p {
+    font-size: 16px;
+  }
+</style>
+{% endblock %}

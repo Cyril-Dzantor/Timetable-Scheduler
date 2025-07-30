@@ -1,11 +1,104 @@
-<h2>My Complaints</h2>
-<ul>
-  {% for c in complaints %}
-    <li>
-      <strong>{{ c.title }}</strong> - {{ c.status }}<br>
-      <small>Submitted: {{ c.submitted_at }}</small><br>
-      <p>{{ c.message }}</p>
-      {% if c.response %}<p><strong>Admin Response:</strong> {{ c.response }}</p>{% endif %}
-    </li>
-  {% endfor %}
-</ul>
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<h1>Your Complaints</h1>
+<div class="complaints-list">
+    {% for complaint in complaints %}
+    <div class="complaint-card">
+        <div class="complaint-header">
+            <h3><a href="{% url 'complaint_detail' complaint.id %}">{{ complaint.title }}</a></h3>
+            <span class="status {{ complaint.status|lower }}">{{ complaint.status }}</span>
+        </div>
+        <p class="excerpt">{{ complaint.message|truncatechars:100 }}</p>
+        <div class="meta">
+            Submitted on {{ complaint.submitted_at|date:"M d, Y" }}
+            {% if complaint.responded_at %}
+            | Last response on {{ complaint.responded_at|date:"M d, Y" }}
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <p>No complaints found.</p>
+    {% endfor %}
+</div>
+<a href="{% url 'file_complaint' %}" class="new-complaint-btn">New Complaint</a>
+
+<style>
+    .complaints-list {
+        margin-bottom: 30px;
+    }
+    
+    .complaint-card {
+        background: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .complaint-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .complaint-header h3 {
+        margin: 0;
+    }
+    
+    .complaint-header a {
+        color: #212529;
+        text-decoration: none;
+    }
+    
+    .complaint-header a:hover {
+        text-decoration: underline;
+    }
+    
+    .status {
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status.pending {
+        background-color: #FFF3CD;
+        color: #856404;
+    }
+    
+    .status.declined {
+        background-color: #F8D7DA;
+        color: #721C24;
+    }
+    
+    .status.completed {
+        background-color: #D4EDDA;
+        color: #155724;
+    }
+    
+    .excerpt {
+        color: #6C757D;
+        margin-bottom: 10px;
+    }
+    
+    .meta {
+        color: #6C757D;
+        font-size: 14px;
+    }
+    
+    .new-complaint-btn {
+        display: inline-block;
+        background-color: #28A745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+    }
+    
+    .new-complaint-btn:hover {
+        background-color: #218838;
+    }
+</style>
+{% endblock %}

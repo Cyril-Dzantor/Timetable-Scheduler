@@ -48,14 +48,15 @@
                           <li><a class="dropdown-item" href="#">Delete Timetable</a></li>
                       </ul>
                   </li>
-                  <li class="nav-item">
-                      <a class="nav-link {% block aboutactive %}{% endblock %}" href="{% url 'about' %}">About</a>
-                  </li>
+
                   <li class="nav-item">
                       <a class="nav-link {% block contactactive %}{% endblock %}" href="{% url 'contact' %}">Contact</a>
                   </li>
 
-                  {% if user.is_authenticated %}
+                    {% if user.is_authenticated %}
+                      {% if user.is_admin %}
+                                <li class="nav-item"><a class="nav-link" href="{% url 'admin_complaints' %}">Admin Inbox</a></li>
+                    {% endif %}
                   <li class="nav-item">
                       <a class="nav-link text-warning" href="{% url 'logout' %}">Logout</a>
                   </li>
