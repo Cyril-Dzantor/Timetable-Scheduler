@@ -7,6 +7,8 @@
 
     <!-- Bootstrap 5 CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
     {% block extra_head %}{% endblock %}
 </head>
@@ -14,15 +16,16 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'home' %}">Scheduler</a>
+            <a class="navbar-brand" href="{% url 'home:home' %}">Scheduler</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                   <li class="nav-item">
-                      <a class="nav-link {% block homeactive %}{% endblock %}" href="{% url 'home' %}">Home</a>
+                      <a class="nav-link {% block homeactive %}{% endblock %}" href="{% url 'home:home' %}">Home</a>
                   </li>
+                  {% if user.is_admin %}
                   <li class="nav-item dropdown">
                       <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                           Main
@@ -36,28 +39,34 @@
                           <li><a class="dropdown-item" href="#">Something else here</a></li>
                       </ul>
                   </li>
+                  {% endif %}
                   <li class="nav-item dropdown">
                       <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                           Timetable
                       </a>
                       <ul class="dropdown-menu">
-                          <li><a class="dropdown-item" href="#">View Timetable</a></li>
-                          <li><a class="dropdown-item" href="{% url 'generate_schedule' %}">Generate New Timetable</a></li>
-                          <li><a class="dropdown-item" href="#">Test Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'portal:timetable_grid' %}">View Lecture Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'portal:exam_timetable_grid' %}">View Exam Timetable</a></li>
+                          {% if user.is_admin %}
                           <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item" href="{% url 'generate_schedule' %}">Generate New Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'generate_exam_schedule' %}">Generate New Exam Schedule</a></li>
+                          <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item" href="#">Test Timetable</a></li>
                           <li><a class="dropdown-item" href="#">Delete Timetable</a></li>
+                          {% endif %}
                       </ul>
                   </li>
                   <li class="nav-item">
-                      <a class="nav-link {% block aboutactive %}{% endblock %}" href="{% url 'about' %}">About</a>
+                      <a class="nav-link {% block aboutactive %}{% endblock %}" href="{% url 'home:about' %}">About</a>
                   </li>
                   <li class="nav-item">
-                      <a class="nav-link {% block contactactive %}{% endblock %}" href="{% url 'contact' %}">Contact</a>
+                      <a class="nav-link {% block contactactive %}{% endblock %}" href="{% url 'home:contact' %}">Contact</a>
                   </li>
 
                   {% if user.is_authenticated %}
                   <li class="nav-item">
-                      <a class="nav-link text-warning" href="{% url 'logout' %}">Logout</a>
+                      <a class="nav-link text-warning" href="{% url 'home:logout' %}">Logout</a>
                   </li>
                   {% endif %}
               </ul>

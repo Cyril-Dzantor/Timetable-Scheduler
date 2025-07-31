@@ -25,18 +25,28 @@ class StudentProfile(models.Model):
     program = models.CharField(max_length=100)
     level = models.CharField(max_length=20)
     secondary_email = models.EmailField(blank=True, null=True)
+    assigned_class = models.ForeignKey('Timetable.Class', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.index_number})"
+    
+    @property
+    def class_code(self):
+        return self.assigned_class.code if self.assigned_class else None
 
 class LecturerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='lecturer_profile')
     staff_id = models.CharField(max_length=20, unique=True, db_index=True)
     department = models.CharField(max_length=100)
     secondary_email = models.EmailField(blank=True, null=True)
+    lecturer = models.OneToOneField('Timetable.Lecturer', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.staff_id})"
+    
+    @property
+    def lecturer_name(self):
+        return self.lecturer.name if self.lecturer else None
     
 
 class AdminProfile(models.Model):

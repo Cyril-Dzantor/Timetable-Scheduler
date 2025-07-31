@@ -43,7 +43,7 @@ class ExamRoomAssignment(models.Model):
     )
 
     def __str__(self):
-        return f"{self.exam.course.code} - {self.room.name}"
+        return f"{self.exam.course.code} - {self.room.code}"
 
 
 class ExamRoomClassAllocation(models.Model):
@@ -66,7 +66,7 @@ class ExamRoomClassAllocation(models.Model):
 
     def __str__(self):
         return (
-            f"{self.class_assigned.code} in {self.room_assignment.room.name} "
+            f"{self.class_assigned.code} in {self.room_assignment.room.code} "
             f"(cols: {self.columns_used or 'manual'})"
         )
 
@@ -90,6 +90,6 @@ class StudentExamAllocation(models.Model):
     def __str__(self):
         return (
             f"{self.student_index} → {self.exam.course.code} "
-            f"in {self.room.name} (col {self.column_number})"
+            f"in {self.room.code} (col {self.column_number})"
         )
 

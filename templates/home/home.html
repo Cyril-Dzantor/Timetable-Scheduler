@@ -7,5 +7,55 @@
 <div class="text-center mt-5">
     <h1>Welcome to the Timetable Scheduler</h1>
     <p class="lead">Automate and manage your academic schedules with ease.</p>
+    
+    {% if user.is_authenticated %}
+        {% if user.is_student or user.is_lecturer %}
+            <!-- Students and Lecturers - Redirect to Portal -->
+            <div class="mt-4">
+                <div class="alert alert-info">
+                    <h4>Welcome, {{ user.get_full_name|default:user.email }}!</h4>
+                    <p>You are logged in as a {% if user.is_student %}student{% else %}lecturer{% endif %}.</p>
+                    <p>You will be redirected to your personalized dashboard.</p>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{% url 'portal:timetable_grid' %}" class="btn btn-primary btn-lg w-100 mb-2">
+                            <i class="fas fa-chalkboard-teacher"></i> View My Timetable
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-warning btn-lg w-100 mb-2">
+                            <i class="fas fa-file-alt"></i> View My Exams
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Admin - Show full access -->
+            <div class="mt-4">
+                <div class="alert alert-success">
+                    <h4>Welcome, Administrator!</h4>
+                    <p>You have full access to manage the timetable system.</p>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <a href="{% url 'portal:timetable_grid' %}" class="btn btn-primary btn-lg w-100 mb-2">
+                            <i class="fas fa-chalkboard-teacher"></i> View All Timetables
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-warning btn-lg w-100 mb-2">
+                            <i class="fas fa-file-alt"></i> View All Exams
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'generate_schedule' %}" class="btn btn-success btn-lg w-100 mb-2">
+                            <i class="fas fa-plus"></i> Generate Timetable
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
 </div>
 {% endblock %}

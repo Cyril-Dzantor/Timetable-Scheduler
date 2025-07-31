@@ -33,8 +33,8 @@ def redirect_by_role(request):
     elif user.is_lecturer and hasattr(user, 'lecturer_profile'):
         return redirect('portal:lecturer_dashboard')
     elif user.is_admin and hasattr(user,'admin_profile'):
-        return redirect('home')
-    return redirect('home')
+        return redirect('/home/home')
+    return redirect('/home/home')
 
 def register_view(request):
     if request.method == 'POST':

@@ -3,9 +3,35 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="my-4">Exam Schedule</h2>
+    <h2 class="my-4">Exam Schedule Preview</h2>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
     
     {% if success %}
+        <!-- Action Buttons at the Top -->
+        <div class="mb-4 d-flex gap-3">
+            <a href="{% url 'accept_exam_schedule' %}" class="btn btn-success btn-lg">
+                <i class="fas fa-check"></i> Accept & Save Exam Schedule
+            </a>
+            <a href="{% url 'generate_exam_schedule' %}" class="btn btn-warning btn-lg">
+                <i class="fas fa-redo"></i> Generate New Exam Schedule
+            </a>
+            <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-info btn-lg">
+                <i class="fas fa-calendar-alt"></i> View Current Timetable
+            </a>
+        </div>
+        
+        <div class="alert alert-success">
+            <h5>✅ Exam Schedule Generated Successfully!</h5>
+            <p>Review the exam schedule below. If you're satisfied, click "Accept & Save" to save it to the database.</p>
+        </div>
         <!-- Main Exam Schedule Table -->
         <div class="card mb-4">
             <div class="card-header">
