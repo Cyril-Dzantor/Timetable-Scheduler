@@ -65,7 +65,7 @@ class CustomRegisterForm(forms.ModelForm):
     secondary_email = forms.EmailField(required=True)
     index_number = forms.CharField(required=False)
     program = forms.CharField(required=False)
-    level = forms.CharField(required=False)
+    class_code = forms.CharField(required=False)
     staff_id = forms.CharField(required=False)
     department = forms.CharField(required=False)
 
@@ -110,7 +110,7 @@ class CustomRegisterForm(forms.ModelForm):
                     user=user,
                     index_number=self.cleaned_data['index_number'],
                     program=self.cleaned_data['program'],
-                    level=self.cleaned_data['level'],
+                    class_code=self.cleaned_data['class_code'],
                     secondary_email=self.cleaned_data['secondary_email']
                 )
             elif user.is_lecturer:

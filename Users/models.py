@@ -2,8 +2,19 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from datetime import datetime
+from django.core.validators import RegexValidator
+
+
 
 class User(AbstractUser):
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        validators=[RegexValidator(
+            regex=r'^[\w.@+\- ]+$',
+            message='Username may contain letters, digits, spaces, and @/./+/-/_.'
+        )],
+    )
     email = models.EmailField(_('school email'), unique=True)
     is_student = models.BooleanField(default=False)
     is_lecturer = models.BooleanField(default=False)
@@ -23,8 +34,9 @@ class User(AbstractUser):
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     index_number = models.CharField(max_length=20, unique=True, db_index=True)
+    registered_courses = models.ManyToManyField('Timetable.Course', related_name='students')
     program = models.CharField(max_length=100)
-    level = models.CharField(max_length=20)
+    class_code = models.CharField(max_length=20)
     secondary_email = models.EmailField(blank=True, null=True)
 
     def __str__(self):

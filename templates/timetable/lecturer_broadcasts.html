@@ -1,0 +1,125 @@
+{% extends 'portal/base.html' %}
+{% block title %}My Broadcasts{% endblock %}
+
+{% block content %}
+<div class="broadcast-list-container">
+    <div class="broadcast-list-header">
+        <h1>My Broadcasts</h1>
+        <a href="{% url 'send_broadcast' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Broadcast
+        </a>
+    </div>
+
+    <div class="broadcast-list">
+        {% for broadcast in broadcasts %}
+        <div class="broadcast-card">
+            <div class="broadcast-header">
+                <h3>{{ broadcast.title }}</h3>
+                <span class="broadcast-date">{{ broadcast.created_at|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="broadcast-course">
+                Course: {{ broadcast.course.code }} - {{ broadcast.course.title }}
+            </div>
+            <div class="broadcast-message">
+                {{ broadcast.message|linebreaks }}
+            </div>
+            {% if broadcast.attachment %}
+            <div class="broadcast-attachment">
+                <a href="{{ broadcast.attachment.url }}" target="_blank">
+                    <i class="fas fa-paperclip"></i> {{ broadcast.attachment.name|cut:"broadcasts/" }}
+                </a>
+            </div>
+            {% endif %}
+            <div class="broadcast-targets">
+                Sent to: 
+                {% for class in broadcast.target_classes.all %}
+                <span class="badge">{{ class.code }}</span>
+                {% empty %}
+                <span>All your classes</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="no-broadcasts">
+            <p>You haven't sent any broadcasts yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .broadcast-list-container {
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+
+    .broadcast-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .broadcast-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .broadcast-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .broadcast-date {
+        color: #666;
+        font-size: 0.9em;
+    }
+
+    .broadcast-course {
+        color: #3498db;
+        margin-bottom: 10px;
+        font-weight: 500;
+    }
+
+    .broadcast-message {
+        margin: 15px 0;
+        line-height: 1.6;
+    }
+
+    .broadcast-attachment a {
+        color: #e74c3c;
+        text-decoration: none;
+    }
+
+    .broadcast-attachment a:hover {
+        text-decoration: underline;
+    }
+
+    .broadcast-targets {
+        margin-top: 15px;
+        font-size: 0.9em;
+    }
+
+    .badge {
+        display: inline-block;
+        background: #f0f0f0;
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin-right: 5px;
+        font-size: 0.8em;
+    }
+
+    .no-broadcasts {
+        text-align: center;
+        padding: 40px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}

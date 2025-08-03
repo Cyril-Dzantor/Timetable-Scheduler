@@ -375,10 +375,7 @@ def exam_schedule(
     enrollment_breakdown
 ):
     # Initialization
-    template_data = {}
-    used_slot = set()
     exam_schedule = []
-
     room_usage = defaultdict(lambda: defaultdict(set))
     room_courses = defaultdict(lambda: defaultdict(set))
     proctor_used = defaultdict(lambda: defaultdict(set))
@@ -392,9 +389,15 @@ def exam_schedule(
     student_enrollment_sorted = sorted(student_enrollment.items(), key=lambda x: x[1], reverse=True)
     rooms_sorted = sorted(room_size.items(), key=lambda x: x[1], reverse=True)
 
-    # Split proctors into those with and without explicit availability
-    proctors_with_availability = [p for p in proctors if p in proctors_availability]
-    proctors_without_availability = [p for p in proctors if p not in proctors_availability]
+    
+    proctors_with_availability = [
+        p for p in proctors 
+        if p in proctors_availability and proctors_availability[p]  
+    ]
+    proctors_without_availability = [
+        p for p in proctors 
+        if p not in proctors_availability or not proctors_availability[p]  
+    ]
 
     for course, course_size in student_enrollment_sorted:
         if 'lab' in course_type.get(course, '').lower():
@@ -418,11 +421,9 @@ def exam_schedule(
                 if room in overflow_rooms or room.startswith("Lab-"):
                     continue
 
-                if (
-                    len(room_courses[(day, slot)][room]) >= max_courses[room]
-                    or course in room_courses[(day, slot)][room]
-                    or any(r['room'] == room for r in rooms_used)
-                ):
+                if (len(room_courses[(day, slot)][room]) >= max_courses[room] or 
+                    course in room_courses[(day, slot)][room] or 
+                    any(r['room'] == room for r in rooms_used)):
                     continue
 
                 row_num = int(room_dimensions[room].split(' x ')[0])
@@ -458,7 +459,6 @@ def exam_schedule(
                         unassigned -= students_to_assign
 
                         cols_to_use = set(sorted(free_columns)[:max_cols_for_course])
-
                         room_usage[(day, slot)][room].update(cols_to_use)
                         room_courses[(day, slot)][room].add(course)
 
@@ -468,17 +468,16 @@ def exam_schedule(
                             'student_ids': assigned_ids,
                             'class': class_code
                         })
-
                         assigned = True
                         break  
 
                     if not assigned:
                         continue
 
-                    # Assign proctors - first try those with explicit availability
+                    # Improved proctor assignment with better availability handling
                     needed_proctors = proctors_in_center[room] - len(proctor_used[(day, slot)][room])
                     if needed_proctors > 0:
-                        # First try proctors with explicit availability
+                        # Try proctors with explicit availability first
                         for proctor in proctors_with_availability:
                             if (proctor not in global_proctor_slot_usage[(day, slot)] and 
                                 day in proctors_availability[proctor]):
@@ -488,19 +487,21 @@ def exam_schedule(
                                 if needed_proctors <= 0:
                                     break
                         
-                        # Then try proctors without explicit availability if still needed
-                        for proctor in proctors_without_availability:
-                            if proctor not in global_proctor_slot_usage[(day, slot)]:
-                                proctor_used[(day, slot)][room].add(proctor)
-                                global_proctor_slot_usage[(day, slot)].add(proctor)
-                                needed_proctors -= 1
-                                if needed_proctors <= 0:
-                                    break
+                        # Fall back to proctors without availability if still needed
+                        if needed_proctors > 0:
+                            for proctor in proctors_without_availability:
+                                if proctor not in global_proctor_slot_usage[(day, slot)]:
+                                    proctor_used[(day, slot)][room].add(proctor)
+                                    global_proctor_slot_usage[(day, slot)].add(proctor)
+                                    needed_proctors -= 1
+                                    if needed_proctors <= 0:
+                                        break
 
                     if assigned_day is None:
                         assigned_day = day
                         assigned_slot = slot
 
+                    # Handle extra columns
                     remainder = col_num % max_allowed_courses
                     extra_col_start = col_num - remainder
                     for i in range(extra_col_start, col_num):
@@ -583,14 +584,15 @@ def exam_schedule(
             if unassigned <= 0:
                 break
 
-        if course_size - unassigned > 0:
+        if (course_size - unassigned) > 0:
             exam_schedule.append({
                 'course': course,
                 'day': assigned_day,
                 'slot': assigned_slot,
                 'rooms': rooms_used,
                 'proctors': {
-                    r['room']: proctor_used[(assigned_day, assigned_slot)].get(r['room'], set()) for r in rooms_used
+                    r['room']: proctor_used[(assigned_day, assigned_slot)].get(r['room'], set()) 
+                    for r in rooms_used
                 }
             })
             assigned_courses.add(course)
@@ -608,5 +610,46 @@ def exam_schedule(
             if room not in overflow_rooms and len(room_courses[(day, slot)][room]) >= max_courses[room]:
                 continue
             unassigned_column_log.append((day, slot, room, col_index, row_num))
+
+    proctor_schedule = defaultdict(list)
+    for exam in exam_schedule:
+        day = exam['day']
+        slot = exam['slot']
+        course = exam['course']
+        for room_info in exam['rooms']:
+            room = room_info['room']
+            for proctor in exam['proctors'].get(room, set()):
+                proctor_schedule[proctor].append((day, slot, room, course))
+
+    # Print each proctor's schedule and check for conflicts
+    print("\nPROCTOR SCHEDULE VERIFICATION:")
+    print("-" * 50)
+    has_conflicts = False
+    
+    for proctor, assignments in sorted(proctor_schedule.items()):
+        print(f"\nProctor: {proctor}")
+        # Group assignments by day and slot to detect conflicts
+        time_slots = defaultdict(list)
+        for day, slot, room, course in assignments:
+            time_slots[(day, slot)].append((room, course))
+        
+        for (day, slot), rooms_courses in time_slots.items():
+            unique_rooms = set(room for room, _ in rooms_courses)
+            if len(unique_rooms) > 1:
+                has_conflicts = True
+                print(f"  ⚠️ CONFLICT on {day} {slot}: Assigned to {len(unique_rooms)} different rooms!")
+                for room, course in rooms_courses:
+                    print(f"    - Room: {room}, Course: {course}")
+            else:
+                room = unique_rooms.pop()
+                num_courses = len(rooms_courses)
+                print(f"  ✓ {day} {slot}: Room {room} for {num_courses} course(s)" + 
+                    (" (multiple courses allowed)" if num_courses > 1 else ""))
+
+
+    if not has_conflicts:
+        print("\n✅ No proctor scheduling conflicts found!")
+    else:
+        print("\n❌ WARNING: Proctor scheduling conflicts detected!")
 
     return exam_schedule, manual_assignment_log, unassigned_column_log

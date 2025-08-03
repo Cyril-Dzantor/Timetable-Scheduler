@@ -1,20 +1,45 @@
 {% extends 'home/base.html' %}
-{% block title %} Generate  Schedule{% endblock %}
+{% block title %}Generate Schedule{% endblock %}
 
 {% block content %}
-<div class="text-center mt-5">
-    <h2>Generate Timetable</h2>
-    <form method="post" action="{% url 'generate' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary mt-3">Run Scheduler</button>
-    </form>
-    <form method="post" action="{% url 'generate_exam_schedule' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary mt-3">Run Exam Scheduler</button>
-    </form>
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Generate Timetables</h2>
+    <p class="text-center text-muted mb-5">Use the options below to generate the class timetable or the exam schedule. Ensure all required data has been entered before proceeding.</p>
+
+    <div class="row justify-content-center">
+        <!-- Class Timetable Card -->
+        <div class="col-md-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center">
+                    <i class="bi bi-calendar-week display-4 text-primary mb-3"></i>
+                    <h5 class="card-title">Class Timetable Scheduler</h5>
+                    <p class="card-text text-muted">Automatically generate a lecture timetable based on course, room, and lecturer availability constraints.</p>
+                    <form method="post" action="{% url 'generate' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-primary mt-2">Run Scheduler</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exam Timetable Card -->
+        <div class="col-md-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center">
+                    <i class="bi bi-pencil-square display-4 text-success mb-3"></i>
+                    <h5 class="card-title">Exam Timetable Scheduler</h5>
+                    <p class="card-text text-muted">Generate an exam timetable by assigning rooms, times, and proctors while avoiding conflicts.</p>
+                    <form method="post" action="{% url 'generate_exam_schedule' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-success mt-2">Run Exam Scheduler</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {% if message %}
-        <div class="alert alert-info mt-4">{{ message }}</div>
+        <div class="alert alert-info text-center mt-4">{{ message }}</div>
     {% endif %}
 </div>
 {% endblock %}

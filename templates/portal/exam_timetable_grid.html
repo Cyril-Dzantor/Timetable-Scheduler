@@ -1,0 +1,466 @@
+{% extends base_template %}
+{% load portal_extras %}
+{% block title %}Exam Timetable Grid{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        {% if user_type == 'student' %}
+                            📝 My Exam Schedule
+                        {% elif user_type == 'lecturer' %}
+                            📝 My Exam Invigilation Schedule
+                        {% elif selected_class and selected_date %}
+                            📝 Exam Schedule - Class {{ selected_class }} on {{ selected_date }}
+                        {% elif selected_class %}
+                            📝 Exam Schedule - Class {{ selected_class }}
+                        {% elif selected_date %}
+                            📝 Exam Schedule - Date {{ selected_date }}
+                        {% else %}
+                            📝 Complete Exam Schedule
+                        {% endif %}
+                    </h4>
+                    <div class="d-flex gap-2">
+                        {% if user.is_authenticated %}
+                            {% if user.is_student %}
+                                <a href="{% url 'portal:student_dashboard' %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-home"></i> Go to Home
+                                </a>
+                            {% elif user.is_lecturer %}
+                                <a href="{% url 'portal:lecturer_dashboard' %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-home"></i> Go to Home
+                                </a>
+                            {% else %}
+                                 <a href="{% url 'home' %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-home"></i> Go to Home
+                                </a> 
+                            {% endif %}                      
+                        {% endif %}
+
+                        <a href="{% url 'portal:timetable_grid' %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-chalkboard-teacher"></i> View Lectures
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Filter Controls - Admin Only -->
+                    {% if user_type == 'admin' %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="GET" class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="class_filter" class="form-label">Filter by Class:</label>
+                                    <select name="class_filter" id="class_filter" class="form-select">
+                                        <option value="">All Classes</option>
+                                        {% for class in all_classes %}
+                                        <option value="{{ class.code }}" {% if selected_class == class.code %}selected{% endif %}>
+                                            {{ class.code }} - {{ class.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="date_filter" class="form-label">Filter by Date:</label>
+                                    <select name="date_filter" id="date_filter" class="form-select">
+                                        <option value="">All Dates</option>
+                                        {% for date in exam_dates %}
+                                        <option value="{{ date|date:'Y-m-d' }}" {% if selected_date == date|date:'Y-m-d' %}selected{% endif %}>
+                                            {{ date|date:'l, F j, Y' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="fas fa-filter"></i> Apply Filters
+                                        </button>
+                                        <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-secondary">
+                                            <i class="fas fa-times"></i> Clear Filters
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Active Filters Display -->
+                    {% if selected_class or selected_date %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <strong>Active Filters:</strong>
+                                {% if selected_class %}
+                                    <span class="badge bg-warning me-2">Class: {{ selected_class }}</span>
+                                {% endif %}
+                                {% if selected_date %}
+                                    <span class="badge bg-danger me-2">Date: {{ selected_date }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Quick Filter Buttons - Admin Only -->
+                    {% if user_type == 'admin' %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Quick Filters</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Popular Classes:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for class in all_classes|slice:":5" %}
+                                                <a href="?class_filter={{ class.code }}" class="btn btn-outline-warning btn-sm">
+                                                    {{ class.code }}
+                                                </a>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Upcoming Exam Dates:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for date in exam_dates|slice:":5" %}
+                                                <a href="?date_filter={{ date|date:'Y-m-d' }}" class="btn btn-outline-danger btn-sm">
+                                                    {{ date|date:'M j' }}
+                                                </a>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-12">
+                                            <h6>Quick Actions:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <a href="/home/home" class="btn btn-outline-success btn-sm">
+                                                    <i class="fas fa-home"></i> Go to Home
+                                                </a>
+                                                <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-outline-secondary btn-sm">
+                                                    <i class="fas fa-eye"></i> View All Exams
+                                                </a>
+                                                <a href="{% url 'generate_exam_schedule' %}" class="btn btn-outline-success btn-sm">
+                                                    <i class="fas fa-plus"></i> Generate New Schedule
+                                                </a>
+                                                <a href="{% url 'portal:timetable_grid' %}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-chalkboard-teacher"></i> View Lectures
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Role-specific info for students and lecturers -->
+                    {% if user_type == 'student' %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Student View:</strong> You are viewing your exam schedule. Only exams for your enrolled courses are shown.
+                            </div>
+                        </div>
+                    </div>
+                    {% elif user_type == 'lecturer' %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Lecturer View:</strong> You are viewing your exam invigilation schedule. Only exams for courses you teach are shown.
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if time_slots %}
+                    <!-- Statistics - Admin Only -->
+                    {% if user_type == 'admin' %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <strong>Total Exams:</strong> 
+                                        <span class="badge bg-warning">{{ exam_schedules.count }}</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Exam Time Slots:</strong> 
+                                        <span class="badge bg-info">{{ time_slots|length }}</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Classes:</strong> 
+                                        <span class="badge bg-primary">{{ all_classes|length }}</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Exam Dates:</strong> 
+                                        <span class="badge bg-danger">{{ exam_dates|length }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm exam-timetable-grid">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th class="time-header" style="width: 120px; min-width: 120px;">Time</th>
+                                    {% for date in exam_dates %}
+                                    <th class="day-header text-center" style="min-width: 200px;">
+                                        {{ date|date:"l" }}<br>
+                                        {{ date|date:"M j, Y" }}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for time_slot in time_slots %}
+                                <tr>
+                                    <td class="time-cell text-center font-weight-bold" style="background-color: #fff3e0;">
+                                        {{ time_slot.start_time|time:"H:i" }} - {{ time_slot.end_time|time:"H:i" }}
+                                    </td>
+                                    {% for date in exam_dates %}
+                                    {% with date_str=date|date:'Y-m-d' %}
+                                    <td class="exam-schedule-cell" style="height: 100px; vertical-align: top;">
+                                        {% if grid_data|get_item:date_str|get_item:time_slot.id %}
+                                            {% for exam in grid_data|get_item:date_str|get_item:time_slot.id %}
+                                            <div class="exam-item p-2 mb-1" style="background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                                                <div class="course-code font-weight-bold text-warning">📝 {{ exam.course_code }}</div>
+                                                <div class="course-title small text-muted">{{ exam.course_title|truncatechars:30 }}</div>
+                                                <div class="exam-date small text-danger">
+                                                    <i class="fas fa-calendar-check"></i> {{ exam.date|date:"Y-m-d" }}
+                                                </div>
+                                                <div class="exam-duration small text-info">
+                                                    <i class="fas fa-clock"></i> {{ exam.duration }}
+                                                </div>
+                                                <div class="exam-rooms small">
+                                                    <i class="fas fa-map-marker-alt text-primary"></i>
+                                                    {% if exam.rooms|length == 1 %}
+                                                        <span class="text-primary">{{ exam.rooms.0.room_code }} ({{ exam.rooms.0.room_type }})</span>
+                                                    {% else %}
+                                                        <span class="text-primary">{{ exam.rooms|length }} Rooms:</span>
+                                                        <div class="room-badges">
+                                                            {% for room in exam.rooms %}
+                                                                <span class="badge bg-light text-dark me-1" title="{{ room.room_code }} - {{ room.room_type }} ({{ room.capacity }} seats)">
+                                                                    {{ room.room_code }}
+                                                                </span>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="empty-slot text-center text-muted" style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                                                <small>-</small>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    {% endwith %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <h5>No Exams Found</h5>
+                        <p>There are no exams matching your current criteria.</p>
+                        {% if user_type == 'admin' %}
+                        <a href="{% url 'generate_exam_schedule' %}" class="btn btn-sm btn-success mt-2">
+                            <i class="fas fa-plus"></i> Generate Exam Schedule
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Exam Schedule Legend</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <div class="legend-item mr-2" style="width: 20px; height: 20px; background-color: #fff3e0; border-left: 4px solid #ff9800;"></div>
+                                <span>Exam</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-calendar-check text-danger mr-2"></i>
+                                <span>Exam Date</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock text-info mr-2"></i>
+                                <span>Duration</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-book text-warning mr-2"></i>
+                                <span>Course</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-map-marker-alt text-primary mr-2"></i>
+                                <span>Room</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-users text-success mr-2"></i>
+                                <span>Students</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'portal:timetable_grid' %}" class="btn btn-primary">
+                    <i class="fas fa-chalkboard-teacher"></i> View Lecture Timetable
+                </a>
+                {% if user_type == 'admin' %}
+                <a href="{% url 'generate_exam_schedule' %}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Generate New Exam Schedule
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.exam-timetable-grid {
+    font-size: 0.85rem;
+}
+
+.exam-timetable-grid th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #343a40;
+    color: white;
+}
+
+.time-header {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: #343a40 !important;
+}
+
+.time-cell {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: #fff3e0 !important;
+}
+
+.exam-item {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.exam-item:hover {
+    background-color: #ffe0b2 !important;
+    transform: scale(1.02);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.room-badges {
+    margin-top: 2px;
+}
+
+.room-badges .badge {
+    font-size: 0.7rem;
+    cursor: help;
+    transition: all 0.2s ease;
+}
+
+.room-badges .badge:hover {
+    background-color: #ffcc80 !important;
+    transform: scale(1.1);
+}
+
+.empty-slot {
+    background-color: #fff3e0;
+    border: 1px dashed #ffcc80;
+}
+
+@media (max-width: 768px) {
+    .exam-timetable-grid {
+        font-size: 0.75rem;
+    }
+
+    .exam-item {
+        padding: 0.25rem !important;
+    }
+
+    .course-title, .exam-date, .exam-duration {
+        font-size: 0.7rem;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit form when filters change
+    const classFilter = document.getElementById('class_filter');
+    const dateFilter = document.getElementById('date_filter');
+    
+    if (classFilter) {
+        classFilter.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+    
+    if (dateFilter) {
+        dateFilter.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+    
+    // Add loading indicators
+    const filterForm = document.querySelector('form');
+    if (filterForm) {
+        const submitBtn = filterForm.querySelector('button[type="submit"]');
+        filterForm.addEventListener('submit', function() {
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Filtering...';
+                submitBtn.disabled = true;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,11 +1,240 @@
 {% extends 'home/base.html' %}
 
 {% block title %}Home{% endblock %}
+{% block homeactive %}active{% endblock %}
 
-{%block homeactive%}active{%endblock%} 
 {% block content %}
-<div class="text-center mt-5">
-    <h1>Welcome to the Timetable Scheduler</h1>
-    <p class="lead">Automate and manage your academic schedules with ease.</p>
+<div class="hero-section">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="display-4 fw-bold mb-4">Timetable Scheduler</h1>
+                <p class="lead mb-4">Streamline your academic scheduling with our intelligent timetable management system. Automate lectures, exams, and room allocations with ease.</p>
+                <div class="d-flex gap-3">
+                    <a href="#" class="btn btn-primary btn-lg px-4">Get Started</a>
+                    <a href="#" class="btn btn-outline-light btn-lg px-4">Learn More</a>
+                </div>
+            </div>
+            <div class="col-lg-5 d-none d-lg-block">
+                <img src="https://via.placeholder.com/500x300" alt="Scheduling illustration" class="img-fluid rounded-3 shadow">
+            </div>
+        </div>
+    </div>
 </div>
+
+<div class="container py-5">
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-6 col-lg-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-2">Courses</h6>
+                            <h2 class="mb-0">{{ course_count }}</h2>
+                        </div>
+                        <div class="icon-circle">
+                            <i class="fas fa-book fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-2">Lecturers</h6>
+                            <h2 class="mb-0">{{ lecturer_count }}</h2>
+                        </div>
+                        <div class="icon-circle">
+                            <i class="fas fa-chalkboard-teacher fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-2">Classes</h6>
+                            <h2 class="mb-0">{{ class_count }}</h2>
+                        </div>
+                        <div class="icon-circle">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3">
+            <div class="card stat-card bg-warning text-dark">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-2">Rooms</h6>
+                            <h2 class="mb-0">{{ room_count }}</h2>
+                        </div>
+                        <div class="icon-circle">
+                            <i class="fas fa-door-open fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Stats -->
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="icon-lg bg-light-primary rounded-circle mb-3">
+                        <i class="fas fa-calendar-alt text-primary fa-2x"></i>
+                    </div>
+                    <h3 class="mb-2">{{ lecture_schedule_count }}</h3>
+                    <h6 class="text-muted">Lectures Scheduled</h6>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="icon-lg bg-light-danger rounded-circle mb-3">
+                        <i class="fas fa-file-alt text-danger fa-2x"></i>
+                    </div>
+                    <h3 class="mb-2">{{ exam_schedule_count }}</h3>
+                    <h6 class="text-muted">Exams Scheduled</h6>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: 60%" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="icon-lg bg-light-success rounded-circle mb-3">
+                        <i class="fas fa-user-graduate text-success fa-2x"></i>
+                    </div>
+                    <h3 class="mb-2">{{ student_exam_allocation_count }}</h3>
+                    <h6 class="text-muted">Student Allocations</h6>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 85%" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center mb-4">Quick Actions</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <a href="#" class="card quick-action-card text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-plus-circle fa-3x text-primary mb-3"></i>
+                        <h5>Add New Schedule</h5>
+                        <p class="text-muted mb-0">Create a new lecture or exam schedule</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="#" class="card quick-action-card text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-calendar-check fa-3x text-success mb-3"></i>
+                        <h5>View Timetables</h5>
+                        <p class="text-muted mb-0">Browse all scheduled events</p>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="#" class="card quick-action-card text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="fas fa-cog fa-3x text-info mb-3"></i>
+                        <h5>System Settings</h5>
+                        <p class="text-muted mb-0">Configure system preferences</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #6B73FF 0%, #000DFF 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .stat-card {
+        border: none;
+        border-radius: 10px;
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .icon-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .icon-lg {
+        width: 70px;
+        height: 70px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .quick-action-card {
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .quick-action-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .bg-light-primary {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    .bg-light-danger {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .bg-light-success {
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+</style>
 {% endblock %}

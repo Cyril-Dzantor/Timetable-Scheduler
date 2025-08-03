@@ -96,6 +96,7 @@ class Class(models.Model):
 
 class Lecturer(models.Model):
     """Teaching staff"""
+    user = models.OneToOneField('Users.User', on_delete=models.CASCADE, related_name='timetable_lecturer', null=True, blank=True)
     name = models.CharField(max_length=100)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     availability = models.JSONField(blank=True, null=True)  # For regular teaching availability
@@ -205,3 +206,35 @@ class CourseRegistration(models.Model):
 
     def __str__(self):
         return f"{self.student_index} registered for {self.course.code}"
+
+
+
+class Broadcast(models.Model):
+    lecturer = models.ForeignKey(
+        'Lecturer',
+        on_delete=models.CASCADE,
+        related_name='broadcasts'
+    )
+    course = models.ForeignKey(
+        'Course',
+        on_delete=models.CASCADE,
+        related_name='broadcasts'
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    target_classes = models.ManyToManyField(
+        'Class',
+        related_name='broadcasts'
+    )
+    attachment = models.FileField(
+        upload_to='broadcasts/',
+        blank=True,
+        null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.title} - {self.lecturer.user.get_full_name()}"

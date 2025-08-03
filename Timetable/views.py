@@ -1,6 +1,18 @@
 from django.shortcuts import render,HttpResponse,redirect
 from django.shortcuts import get_object_or_404
-from .models import Room,Class,Lecturer,Course,Building, RoomType, LabType,Department,CourseType
+from .models import Room,Class,Lecturer,Course,Building, RoomType, LabType,Department,CourseType,ClassStudent,CourseRegistration,Broadcast
+from Users.models import LecturerProfile
+from .forms import BroadcastForm
+from django.contrib.auth.decorators import login_required
+from Scheduler.models import LectureSchedule
+from django.db.models import Q
+
+from django.http import FileResponse, Http404
+from django.conf import settings
+import os 
+
+
+from Users.models import StudentProfile
 
 
 # Create your views here.
@@ -310,6 +322,121 @@ def delete_class(request, class_id):
     class_obj.delete()
     return redirect('classes')
 
+from django.contrib import messages
 
+@login_required
+def send_broadcast(request):
+    if not request.user.is_lecturer:
+        messages.error(request, "Only lecturers can send broadcasts")
+        return redirect('home')
 
+    try:
+        lecturer = Lecturer.objects.get(user=request.user)
+    except Lecturer.DoesNotExist:
+        messages.error(request, "Lecturer profile not found")
+        return redirect('home')
 
+    if request.method == 'POST':
+        form = BroadcastForm(request.POST, request.FILES, lecturer=lecturer)
+        if form.is_valid():
+            broadcast = form.save(commit=False)
+            broadcast.lecturer = lecturer
+            broadcast.save()
+            form.save_m2m()
+            messages.success(request, "Broadcast sent successfully!")
+            return redirect('lecturer_broadcasts') 
+        else:
+            messages.error(request, "Please correct the errors below")
+    else:
+        form = BroadcastForm(lecturer=lecturer)
+
+    return render(request, 'timetable/send_broadcast.html', {
+        'form': form,
+        'lecturer': lecturer
+    })
+
+@login_required
+def lecturer_broadcasts(request):
+    if not request.user.is_lecturer:
+        messages.error(request, "Only lecturers can view broadcasts")
+        return redirect('home')
+
+    try:
+        lecturer = Lecturer.objects.get(user=request.user)
+        broadcasts = Broadcast.objects.filter(lecturer=lecturer).order_by('-created_at')
+    except Lecturer.DoesNotExist:
+        messages.error(request, "Lecturer profile not found")
+        return redirect('home')
+
+    return render(request, 'timetable/lecturer_broadcasts.html', {
+        'broadcasts': broadcasts,
+        'lecturer': lecturer
+    })
+
+@login_required
+def student_inbox(request):
+    user = request.user
+    if not user.is_student:
+        return redirect('home')
+
+    try:
+        student_profile = user.student_profile
+        class_code = student_profile.class_code
+        registered_courses = student_profile.registered_courses.all()
+    except AttributeError:
+        return HttpResponse("Student profile not properly configured.", status=403)
+
+    # Get all broadcasts for the student
+    broadcasts = Broadcast.objects.filter(
+        Q(
+            # Broadcasts sent to all classes in courses the student is registered for
+            target_classes__isnull=True,
+            course__in=registered_courses,
+            lecturer__lectureschedule__assigned_class__code=class_code
+        ) |
+        Q(
+            # Broadcasts specifically targeting the student's class
+            target_classes__code=class_code,
+            course__in=registered_courses
+        )
+    ).distinct().order_by('-created_at')
+    print(f"Student class: {class_code}")
+    print(f"Registered courses: {list(registered_courses.values_list('code', flat=True))}")
+    print(f"Found {broadcasts.count()} broadcasts")
+
+    return render(request, 'timetable/student_inbox.html', {
+        'broadcasts': broadcasts,
+        'student_class': class_code
+    })
+
+@login_required
+def download_attachment(request, broadcast_id):
+    try:
+        broadcast = Broadcast.objects.get(id=broadcast_id)
+        
+        # Verify student has permission to access this attachment
+        if not is_student_authorized(request.user, broadcast):
+            raise Http404("You don't have permission to access this file")
+            
+        file_path = os.path.join(settings.MEDIA_ROOT, str(broadcast.attachment))
+        
+        if os.path.exists(file_path):
+            response = FileResponse(open(file_path, 'rb'))
+            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+            return response
+        raise Http404("File not found")
+    except Broadcast.DoesNotExist:
+        raise Http404("Broadcast not found")
+
+def is_student_authorized(user, broadcast):
+    """Check if student is authorized to download this attachment"""
+    if not user.is_student:
+        return False
+    try:
+        student_profile = user.student_profile
+        # Check if broadcast is for student's class and courses
+        return broadcast.course in student_profile.registered_courses.all() and (
+            not broadcast.target_classes.exists() or
+            broadcast.target_classes.filter(code=student_profile.class_code).exists())
+    except AttributeError:
+        return False

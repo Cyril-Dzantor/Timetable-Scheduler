@@ -1,0 +1,53 @@
+{% extends 'portal/base.html' %}
+{% block title %}Inbox{% endblock %}
+{% block content %}
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Your Broadcast Messages</h2>
+        <span class="badge bg-primary">Class: {{ student_class }}</span>
+    </div>
+    
+    {% if broadcasts %}
+    <div class="list-group">
+        {% for broadcast in broadcasts %}
+        <div class="list-group-item mb-3">
+            <div class="d-flex justify-content-between">
+                <h5 class="mb-1">{{ broadcast.title }}</h5>
+                <small class="text-muted">{{ broadcast.created_at|date:"M d, Y H:i" }}</small>
+            </div>
+            <p class="mb-2">{{ broadcast.message }}</p>
+            <div class="d-flex justify-content-between align-items-end">
+                <div>
+                    <small class="text-muted me-2">
+                        <strong>From:</strong> {{ broadcast.lecturer.user.get_full_name }}
+                    </small>
+                    <small class="text-muted">
+                        <strong>Course:</strong> {{ broadcast.course.code }}
+                    </small>
+                </div>
+                {% if broadcast.attachment %}
+                <a href="{% url 'download_attachment' broadcast.id %}" class="btn btn-sm btn-outline-primary" download>
+                    <i class="fas fa-download"></i> Download
+                </a>
+                {% endif %}
+            </div>
+            {% if broadcast.target_classes.exists %}
+            <small class="text-muted d-block mt-1">
+                <strong>For:</strong> 
+                {% for class in broadcast.target_classes.all %}
+                <span class="badge bg-secondary">{{ class.code }}</span>
+                {% endfor %}
+            </small>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        No broadcasts available for your class and registered courses.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

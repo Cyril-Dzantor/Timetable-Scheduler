@@ -1,0 +1,327 @@
+{% extends 'portal/base.html' %}
+{% block title %}Send Broadcast{% endblock %}
+
+{% block content %}
+
+<div class="messages-container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    {% if form.non_field_errors %}
+    <div class="non-field-errors">
+        {% for error in form.non_field_errors %}
+            <p class="error-text">{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<div class="broadcast-form-container">
+    <div class="broadcast-form-card">
+        <h1 class="form-title">Send Broadcast Message</h1>
+        
+        <form method="post" enctype="multipart/form-data" class="broadcast-form">
+            {% csrf_token %}
+            
+            <div class="form-fields">
+                <div class="form-group">
+                    <label for="id_course" class="form-label">
+                        Course <span class="required-asterisk">*</span>
+                    </label>
+                    {{ form.course }}
+                    {% for error in form.course.errors %}
+                    <p class="error-text">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_title" class="form-label">
+                        Title <span class="required-asterisk">*</span>
+                    </label>
+                    {{ form.title }}
+                    {% for error in form.title.errors %}
+                    <p class="error-text">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_message" class="form-label">
+                        Message <span class="required-asterisk">*</span>
+                    </label>
+                    {{ form.message }}
+                    {% for error in form.message.errors %}
+                    <p class="error-text">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_target_classes" class="form-label">
+                        Target Classes
+                    </label>
+                    {{ form.target_classes }}
+                    <p class="help-text">
+                        Classes you're assigned to teach. Select specific classes or leave blank to send to all your classes.
+                    </p>
+                    {% for error in form.target_classes.errors %}
+                    <p class="error-text">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_attachment" class="form-label">
+                        Attachment
+                    </label>
+                    {{ form.attachment }}
+                    {% for error in form.attachment.errors %}
+                    <p class="error-text">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="submit-button">
+                    <i class="fas fa-paper-plane"></i> Send Broadcast
+                </button>
+                <a href="{% url 'send_broadcast' %}" class="cancel-button">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+ /* Messages styling */
+    .messages-container {
+        max-width: 800px;
+        margin: 20px auto 0;
+        padding: 0 20px;
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .alert-success {
+        color: #3c763d;
+        background-color: #dff0d8;
+        border-color: #d6e9c6;
+    }
+    
+    .alert-error, .alert-danger {
+        color: #a94442;
+        background-color: #f2dede;
+        border-color: #ebccd1;
+    }
+    
+    .alert-info {
+        color: #31708f;
+        background-color: #d9edf7;
+        border-color: #bce8f1;
+    }
+    
+    .close {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: inherit;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        line-height: 1;
+        opacity: 0.5;
+        background: none;
+        border: none;
+        padding: 0;
+    }
+    
+    .close:hover {
+        opacity : 1,
+    }
+
+    /* Main container styles */
+    .broadcast-form-container {
+        max-width: 800px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+
+    .broadcast-form-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+    }
+
+    /* Typography */
+    .form-title {
+        color: #333;
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 25px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    /* Form elements */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 500;
+        color: #444;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .required-asterisk {
+        color: #e74c3c;
+        margin-left: 3px;
+    }
+
+    input, textarea, select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+
+    /* Style for multiple select */
+    select[multiple] {
+        height: auto;
+        min-height: 120px;
+        padding: 8px;
+    }
+
+    select[multiple] option {
+        padding: 8px 12px;
+        margin: 2px 0;
+        border-radius: 3px;
+    }
+
+    select[multiple] option:hover {
+        background-color: #f0f8ff;
+    }
+
+    input:focus, textarea:focus, select:focus {
+        border-color: #3498db;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+
+    textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    /* Help and error text */
+    .help-text {
+        font-size: 12px;
+        color: #777;
+        margin-top: 5px;
+    }
+
+    .error-text {
+        font-size: 12px;
+        color: #e74c3c;
+        margin-top: 5px;
+    }
+
+    /* Buttons */
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 15px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    .submit-button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+
+    .submit-button:hover {
+        background-color: #2980b9;
+    }
+
+    .cancel-button {
+        display: inline-block;
+        padding: 10px 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        color: #555;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .cancel-button:hover {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+    }
+
+    /* Icon */
+    .submit-button .fa-paper-plane {
+        margin-right: 8px;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const courseSelect = document.getElementById('id_course');
+    const classSelect = document.getElementById('id_target_classes');
+    
+    if (courseSelect && classSelect) {
+        courseSelect.addEventListener('change', function() {
+            const courseId = this.value;
+            if (courseId) {
+
+                console.log('Course selected:', courseId);
+            }
+        });
+    }
+});
+document.addEventListener('DOMContentLoaded', function() {
+    // Close button functionality for messages
+    document.querySelectorAll('.close').forEach(button => {
+        button.addEventListener('click', function() {
+            this.parentElement.style.display = 'none';
+        });
+    });
+
+    // Your existing course selection code
+    const courseSelect = document.getElementById('id_course');
+    const classSelect = document.getElementById('id_target_classes');
+    
+    if (courseSelect && classSelect) {
+        courseSelect.addEventListener('change', function() {
+            const courseId = this.value;
+            if (courseId) {
+                console.log('Course selected:', courseId);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

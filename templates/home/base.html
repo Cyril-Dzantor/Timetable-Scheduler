@@ -20,9 +20,25 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                  <li class="nav-item">
-                      <a class="nav-link {% block homeactive %}{% endblock %}" href="{% url 'home' %}">Home</a>
-                  </li>
+                  {% if user.is_authenticated %}
+                    {% if user.is_student %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="{% url 'portal:student_dashboard' %}">
+                          <i class="fas fa-home"></i> Home
+                        </a>
+                      </li>
+                    {% elif user.is_lecturer %}
+                      <li class="nav-item">
+                        <a class="nav-link" href="{% url 'portal:lecturer_dashboard' %}">
+                          <i class="fas fa-home"></i> Home
+                        </a>
+                      </li>
+                    {% elif user.is_admin %}
+                      <li class="nav-item">
+                        <a class="nav-link {% block homeactive %}{% endblock %}" href="{% url 'home' %}">Home</a>
+                      </li>
+                    {% endif %}
+                  {% endif %}
                   <li class="nav-item dropdown">
                       <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                           Main
@@ -41,11 +57,15 @@
                           Timetable
                       </a>
                       <ul class="dropdown-menu">
-                          <li><a class="dropdown-item" href="#">View Timetable</a></li>
-                          <li><a class="dropdown-item" href="{% url 'generate_schedule' %}">Generate New Timetable</a></li>
-                          <li><a class="dropdown-item" href="#">Test Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'portal:timetable_grid' %}">View Lecture Timetable</a></li>
+                          <li><a class="dropdown-item" href="{% url 'portal:exam_timetable_grid' %}">View Exam Timetable</a></li>
+                          {% if user.is_admin %}
                           <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item" href="{% url 'generate_schedule' %}">Generate New Timetable</a></li>
+                          <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item" href="#">Test Timetable</a></li>
                           <li><a class="dropdown-item" href="#">Delete Timetable</a></li>
+                          {% endif %}
                       </ul>
                   </li>
 

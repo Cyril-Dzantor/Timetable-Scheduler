@@ -16,5 +16,9 @@ urlpatterns = [
     path('lecturers/delete/<int:lecturer_id>/', views.delete_lecturer, name='delete_lecturer'),
     path('courses/edit/<int:course_id>/', views.edit_course, name='edit_course'),
     path('courses/delete/<int:course_id>/', views.delete_course, name='delete_course'),
+    path('broadcast_send/', views.send_broadcast, name='send_broadcast'),
+    path('broadcasts/', views.lecturer_broadcasts, name='lecturer_broadcasts'),
+    path('broadcast_inbox/', views.student_inbox, name='student_inbox'),
+    path('download/<int:broadcast_id>/', views.download_attachment, name='download_attachment'),
 
 ]

@@ -1,11 +1,13 @@
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import render, HttpResponse, redirect
 from .algorithm import  exam_schedule,generate_complete_schedule 
 from Timetable.models import (
     Class, Room, Course, Lecturer, TimeSlot,
     ExamDate, CourseRegistration, ClassStudent
 )
+from Scheduler.models import LectureSchedule
 from collections import defaultdict 
-import json 
+import json
+from django.contrib import messages
 
 def generate(request):
     try:
@@ -116,9 +118,31 @@ def generate(request):
         schedule, schedule_issues = generate_complete_schedule(**algorithm_data)
         print(schedule) 
         
+        # 9. Store schedule in session for preview (don't save to database yet)
+        if schedule:
+            # Convert schedule to JSON-serializable format for session storage
+            session_schedule = []
+            for schedule_item in schedule:
+                session_item = {
+                    'course': schedule_item['course'],
+                    'class': schedule_item['class'],
+                    'lecturer': schedule_item['lecturer'],
+                    'room': schedule_item['room'],
+                    'day': schedule_item['day'],
+                    'slots': schedule_item['slots'],
+                    'enrollment': schedule_item.get('enrollment', 0)
+                }
+                session_schedule.append(session_item)
+            
+            # Store in session
+            request.session['preview_schedule'] = session_schedule
+            request.session['schedule_issues'] = schedule_issues
+        
         return render(request, 'scheduler/generate.html', {
             'schedule': schedule,
+            'schedule_issues': schedule_issues,
             'success': bool(schedule),
+            'show_accept_button': bool(schedule),
             'debug_data': algorithm_data if not schedule else None  # For debugging
         })
 
@@ -218,7 +242,31 @@ def generate_exam_schedule(request):
         # 7. Run the exam scheduling algorithm
         schedule, manual_assignments, unused_columns = exam_schedule(**exam_data)
         
-        # 8. Process the results for the template
+        # 8. Store exam schedule in session for preview (don't save to database yet)
+        if schedule:
+            # Store the original schedule data in session (convert sets to lists for JSON serialization)
+            import copy
+            session_exam_schedule = copy.deepcopy(schedule)
+            
+            # Convert any sets to lists for JSON serialization
+            for exam in session_exam_schedule:
+                for room in exam['rooms']:
+                    if 'student_ids' in room and isinstance(room['student_ids'], set):
+                        room['student_ids'] = list(room['student_ids'])
+                    if 'columns_used' in room and isinstance(room['columns_used'], set):
+                        room['columns_used'] = list(room['columns_used'])
+                
+                # Convert proctors sets to lists
+                for room_code, proctors in exam['proctors'].items():
+                    if isinstance(proctors, set):
+                        exam['proctors'][room_code] = list(proctors)
+            
+            # Store in session
+            request.session['preview_exam_schedule'] = session_exam_schedule
+            request.session['exam_manual_assignments'] = manual_assignments
+            request.session['exam_unused_columns'] = unused_columns
+        
+        # 9. Process the results for the template
         processed_schedule = []
         for exam in schedule:
             rooms_info = []
@@ -240,15 +288,19 @@ def generate_exam_schedule(request):
                 'proctors': {room: list(proctors) for room, proctors in exam['proctors'].items()}
             })
         
-        # 9. Prepare context for template
+        # 10. Prepare context for template
         context = {
             'exam_schedule': processed_schedule,
             'manual_assignments': manual_assignments,
             'unused_columns': unused_columns,
             'exam_days': exam_days,
             'exam_slots': exam_slots,
-            'success': True
+            'success': True,
+            'show_accept_button': bool(schedule)
         }
+
+
+     
         
         return render(request, 'scheduler/exam_schedule.html', context)
 
@@ -263,60 +315,206 @@ def generate_exam_schedule(request):
 def generate_schedule(request):
     return render(request, 'scheduler/generate_schedule.html')
 
-# def generate(request):
-#     # Classes
-#     classes = list(Class.objects.values_list('class_code', flat=True))
-#     class_size = {c.class_code: c.class_size for c in Class.objects.all()}
-
-#     # Rooms
-#     rooms = list(Room.objects.values_list('room_code', flat=True))
-#     room_size = {r.room_code: r.capacity for r in Room.objects.all()}
-
-#     # Days and Time Slots
-#     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-#     lecture_hours = [
-#         '8:00 - 8:55', '9:00 - 9:55', '10:30 - 11:25', '11:30 - 12:25',
-#         '13:00 - 13:55', '14:00 - 14:55', '15:00 - 15:55',
-#         '16:00 - 16:55', '17:00 - 17:55', '18:00 - 18:55'
-#     ]
-
-#     # Courses and related data
-#     courses = list(Course.objects.values_list('course_code', flat=True))
-#     course_credit_hours = {c.course_code: c.credit_hours for c in Course.objects.all()}
-#     student_enrollment = {c.course_code: c.students_enrolled for c in Course.objects.all()}
+def accept_schedule(request):
+    """Accept and save the previewed schedule to database"""
+    if 'preview_schedule' not in request.session:
+        messages.warning(request, "No schedule to accept. Please generate a schedule first.")
+        return redirect('generate')
     
-#     # Prerequisites
-#     course_prerequisites = {
-#         c.course_code: [p.course_code for p in c.course_prerequisites.all()]
-#         for c in Course.objects.all()
-#     }
+    schedule_to_save = request.session['preview_schedule']
+    schedule_issues = request.session.get('schedule_issues', [])
 
-#     # Lecturers and availability
-#     lecturers = list(Lecturer.objects.values_list('name', flat=True))
-#     lecturer_availability = {
-#         l.name: l.availability for l in Lecturer.objects.all()
-#     }
+    if not schedule_to_save:
+        messages.warning(request, "No schedule to accept. Please generate a schedule first.")
+        return redirect('generate')
 
-#     # Lecturer-course mapping (Many-to-Many)
-#     lecturers_courses_mapping = {
-#         l.name: [c.course_code for c in l.courses.all()]
-#         for l in Lecturer.objects.all()
-#     }
+    try:
+        # Clear existing schedules first
+        LectureSchedule.objects.all().delete()
+        
+        # Save new schedules
+        saved_count = 0
+        for schedule_item in schedule_to_save:
+            try:
+                # Get the course
+                course = Course.objects.get(code=schedule_item['course'])
+                
+                # Get the class
+                assigned_class = Class.objects.get(code=schedule_item['class'])
+                
+                # Get the lecturer (first one if multiple)
+                lecturer_name = schedule_item['lecturer']
+                lecturer = Lecturer.objects.filter(name=lecturer_name).first()
+                
+                # Get the room
+                room = Room.objects.get(code=schedule_item['room'])
+                
+                # Get or create time slot
+                start_time_str, end_time_str = schedule_item['slots'][0].split(' - ')
+                from datetime import datetime
+                start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                end_time = datetime.strptime(end_time_str, '%H:%M').time()
+                
+                time_slot, created = TimeSlot.objects.get_or_create(
+                    start_time=start_time,
+                    end_time=end_time,
+                    defaults={'code': f"{start_time_str}-{end_time_str}", 'is_lecture_slot': True}
+                )
+                
+                # Create LectureSchedule object
+                LectureSchedule.objects.create(
+                    course=course,
+                    assigned_class=assigned_class,
+                    lecturer=lecturer,
+                    room=room,
+                    day=schedule_item['day'],
+                    time_slot=time_slot
+                )
+                saved_count += 1
+                
+            except Exception as e:
+                print(f"Error saving schedule item: {e}")
+                continue
 
-#     # You can now pass this data to your algorithm
-#     best_schedule = run_genetic_algorithm(
-#         class_size=class_size,
-#         rooms=rooms,
-#         room_size=room_size,
-#         days=days,
-#         lecture_hours=lecture_hours,
-#         courses=courses,
-#         course_credit_hours=course_credit_hours,
-#         student_enrollment=student_enrollment,
-#         course_prerequisites=course_prerequisites,
-#         lecturers=lecturers,
-#         lecturers_courses_mapping=lecturers_courses_mapping,
-#         lecturer_availability=lecturer_availability,
-#     )
+        messages.success(request, f"Schedule accepted and saved successfully! {saved_count} sessions saved to database.")
+        
+        # Clear session data
+        del request.session['preview_schedule']
+        del request.session['schedule_issues']
+        
+        return redirect('generate')
+        
+    except Exception as e:
+        messages.error(request, f"Error saving schedule: {str(e)}")
+        return redirect('generate')
 
-#     return render(request, 'scheduler/generate.html', best_schedule)
+def accept_exam_schedule(request):
+    """Accept and save the previewed exam schedule to database"""
+    if 'preview_exam_schedule' not in request.session:
+        messages.warning(request, "No exam schedule to accept. Please generate an exam schedule first.")
+        return redirect('generate_exam_schedule')
+    
+    exam_schedule_to_save = request.session['preview_exam_schedule']
+    manual_assignments = request.session.get('exam_manual_assignments', [])
+    unused_columns = request.session.get('exam_unused_columns', [])
+
+    if not exam_schedule_to_save:
+        messages.warning(request, "No exam schedule to accept. Please generate an exam schedule first.")
+        return redirect('generate_exam_schedule')
+
+    try:
+        # Clear existing exam schedules first
+        from Scheduler.models import ExamSchedule, ExamRoomAssignment, ExamRoomClassAllocation, StudentExamAllocation
+        ExamSchedule.objects.all().delete()
+        ExamRoomAssignment.objects.all().delete()
+        ExamRoomClassAllocation.objects.all().delete()
+        StudentExamAllocation.objects.all().delete()
+        
+        # Save new exam schedules
+        saved_count = 0
+        for exam_item in exam_schedule_to_save:
+            try:
+                # Get the course
+                course = Course.objects.get(code=exam_item['course'])
+                
+                # Parse the exam date
+                from datetime import datetime
+                exam_date = datetime.strptime(exam_item['day'], '%Y-%m-%d').date()
+                
+                # Get or create time slot
+                start_time_str, end_time_str = exam_item['slot'].split(' - ')
+                start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                end_time = datetime.strptime(end_time_str, '%H:%M').time()
+                
+                time_slot, created = TimeSlot.objects.get_or_create(
+                    start_time=start_time,
+                    end_time=end_time,
+                    defaults={'code': f"{start_time_str}-{end_time_str}", 'is_exam_slot': True}
+                )
+                
+                # Create ExamSchedule object
+                exam_schedule = ExamSchedule.objects.create(
+                    course=course,
+                    date=exam_date,
+                    time_slot=time_slot
+                )
+                
+                # Create room assignments and allocations
+                print(f"\nProcessing exam: {exam_item['course']} on {exam_item['day']} at {exam_item['slot']}")
+                print(f"Number of rooms: {len(exam_item['rooms'])}")
+                
+                for room_data in exam_item['rooms']:
+                    print(f"Processing room: {room_data['room']} for class: {room_data['class']}")
+                    room = Room.objects.get(code=room_data['room'])
+                    
+                    # Create ExamRoomAssignment
+                    room_assignment = ExamRoomAssignment.objects.create(
+                        exam=exam_schedule,
+                        room=room
+                    )
+                    
+                    # Add proctors if available
+                    if room_data['room'] in exam_item['proctors']:
+                        proctor_names = exam_item['proctors'][room_data['room']]
+                        for proctor_name in proctor_names:
+                            proctor = Lecturer.objects.filter(name=proctor_name).first()
+                            if proctor:
+                                room_assignment.proctors.add(proctor)
+                    
+                    # Create class allocation
+                    try:
+                        print(f"Looking for class with code: {room_data['class']}")
+                        print(f"Room data keys: {list(room_data.keys())}")
+                        print(f"Room data: {room_data}")
+                        
+                        class_obj = Class.objects.get(code=room_data['class'])
+                        print(f"Found class: {class_obj.code} - {class_obj.name}")
+                        
+                        # Get student count from the correct key
+                        student_count = room_data.get('students_count', room_data.get('student_count', len(room_data.get('student_ids', []))))
+                        print(f"Student count: {student_count}")
+                        
+                        ExamRoomClassAllocation.objects.create(
+                            room_assignment=room_assignment,
+                            class_assigned=class_obj,
+                            columns_used=room_data.get('columns_used', []),
+                            student_count=student_count
+                        )
+                        print(f"Created ExamRoomClassAllocation for {class_obj.code}")
+                    except Class.DoesNotExist:
+                        print(f"ERROR: Class with code '{room_data['class']}' not found in database")
+                        # List available classes for debugging
+                        available_classes = list(Class.objects.values_list('code', flat=True))
+                        print(f"Available classes: {available_classes}")
+                    except Exception as e:
+                        print(f"ERROR creating ExamRoomClassAllocation: {e}")
+                        print(f"Full room_data: {room_data}")
+                    
+                    # Create student allocations
+                    for student_id in room_data['student_ids']:
+                        StudentExamAllocation.objects.create(
+                            student_index=student_id,
+                            exam=exam_schedule,
+                            room=room,
+                            column_number=room_data.get('column_number', 0)
+                        )
+                
+                saved_count += 1
+                
+            except Exception as e:
+                print(f"Error saving exam schedule item: {e}")
+                continue
+
+        messages.success(request, f"Exam schedule accepted and saved successfully! {saved_count} exams saved to database.")
+        
+        # Clear session data
+        del request.session['preview_exam_schedule']
+        del request.session['exam_manual_assignments']
+        del request.session['exam_unused_columns']
+        
+        return redirect('generate_exam_schedule')
+        
+    except Exception as e:
+        messages.error(request, f"Error saving exam schedule: {str(e)}")
+        return redirect('generate_exam_schedule')
+
