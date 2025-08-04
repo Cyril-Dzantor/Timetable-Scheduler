@@ -1,0 +1,102 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Day Navigation -->
+    <div class="d-flex justify-content-between mb-4">
+        <a href="{% url 'portal:day_view_with_date' date_string=prev_day %}" 
+           class="btn btn-outline-primary">
+            <i class="fas fa-chevron-left"></i> Previous Day
+        </a>
+        
+        <div class="text-center">
+            <h3>{{ current_day }}</h3>
+            <h5 class="text-muted">{{ current_date|date:"F j, Y" }}</h5>
+            
+            <!-- Date Picker -->
+            <input type="date" class="form-control mt-2" id="datePicker" 
+                   value="{{ current_date|date:'Y-m-d' }}"
+                   style="width: auto; display: inline-block;"
+                   onchange="location.href='{% url 'portal:day_view_with_date' date_string='0000-00-00' %}'.replace('0000-00-00', this.value)">
+        </div>
+        
+        <a href="{% url 'portal:day_view_with_date' date_string=next_day %}" 
+           class="btn btn-outline-primary">
+            Next Day <i class="fas fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- Timetable Grid -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered timetable">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%">Time</th>
+                            <th>Schedule</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for slot in time_slots %}
+                        <tr>
+                            <td class="time-slot">
+                                {{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}
+                            </td>
+                            <td class="day-slot" data-day="{{ current_day }}" data-slot="{{ slot.id }}">
+                                {% for event in events %}
+                                    {% if event.time_slot.id == slot.id %}
+                                        <div class="event mb-2" style="border-left: 4px solid {{ event.event_type.color }};">
+                                            <div class="d-flex justify-content-between">
+                                                <strong>{{ event.title }}</strong>
+                                                <div>
+                                                    <a href="{% url 'portal:edit_event' event.id %}" class="btn btn-sm btn-link">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'portal:delete_event' event.id %}" class="btn btn-sm btn-link text-danger">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            {% if event.location %}
+                                                <small class="text-muted">{{ event.location }}</small>
+                                            {% endif %}
+                                            {% if event.description %}
+                                                <p class="mb-0 small">{{ event.description|truncatechars:50 }}</p>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if timetable.show_institutional_classes %}
+                                    {% for event in institutional_events %}
+                                        {% if event.time_slot.id == slot.id %}
+                                            <div class="event mb-2" style="border-left: 4px solid #6c757d;">
+                                                <div class="d-flex justify-content-between">
+                                                    <strong>{{ event.course.code }}</strong>
+                                                    <small class="text-muted">{{ event.room.code }}</small>
+                                                </div>
+                                                <small>{{ event.course.title }}</small>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3 text-center">
+        <a href="{% url 'portal:timetable' %}" class="btn btn-secondary">
+            <i class="fas fa-calendar-week"></i> Back to Week View
+        </a>
+        <a href="{% url 'portal:add_event' %}?day={{ current_day }}" class="btn btn-primary ms-2">
+            <i class="fas fa-plus"></i> Add Event
+        </a>
+    </div>
+</div>
+{% endblock %}

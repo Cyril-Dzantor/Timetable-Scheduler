@@ -1,4 +1,4 @@
-from django.shortcuts import render,redirect 
+from django.shortcuts import render,redirect,get_object_or_404
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from Scheduler.models import LectureSchedule, ExamSchedule
@@ -8,7 +8,13 @@ from Users.models import StudentProfile
 from django.db.models import Q
 from django.contrib import messages
 
-from datetime import datetime
+from datetime import datetime,timedelta
+from django.utils import timezone
+
+from .models import PersonalEvent, PersonalTimetable, PersonalEventType
+from .forms import PersonalEventForm, TimetableSettingsForm
+
+from Users.models import User
 
 @login_required
 def student_dashboard(request):
@@ -317,3 +323,169 @@ def check_schedule_conflicts(schedule):
         conflicts.append(f"Lecturer conflict with {lecturer_conflicts.first().course.code}")
     
     return conflicts
+
+
+@login_required
+def timetable_view(request):
+    timetable, _ = PersonalTimetable.objects.get_or_create(user=request.user)
+    view = request.GET.get('view', timetable.default_view)
+    
+    if view == 'day':
+        current_date = timezone.now().date()
+        return redirect('portal:day_view_with_date', date_string=current_date.strftime('%Y-%m-%d'))
+    
+    # Week view logic
+    events = PersonalEvent.objects.filter(user=request.user)
+    institutional_events = []
+    exam_events = []
+    
+    if timetable.show_institutional_classes:
+        if hasattr(request.user, 'timetable_lecturer'):
+            institutional_events = LectureSchedule.objects.filter(
+                lecturer=request.user.timetable_lecturer
+            ).select_related('course', 'room', 'time_slot')
+        else:
+            try:
+                student_classes = request.user.student_classes.all()
+                institutional_events = LectureSchedule.objects.filter(
+                    assigned_class__in=student_classes
+                ).select_related('course', 'room', 'time_slot')
+            except AttributeError:
+                pass
+    
+    if timetable.show_exams:
+        if hasattr(request.user, 'timetable_lecturer'):
+            exam_events = ExamSchedule.objects.filter(
+                course__lecturers=request.user.timetable_lecturer
+            ).select_related('course', 'time_slot')
+        else:
+            try:
+                student_classes = request.user.student_classes.all()
+                exam_events = ExamSchedule.objects.filter(
+                    course__classes__in=student_classes
+                ).select_related('course', 'time_slot')
+            except AttributeError:
+                pass
+    
+    context = {
+        'timetable': timetable,
+        'events': events,
+        'institutional_events': institutional_events,
+        'exam_events': exam_events,
+        'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        'time_slots': TimeSlot.objects.all().order_by('start_time'),
+        'current_view': view,
+        'today': timezone.now().strftime('%A'),
+    }
+    return render(request, 'portal/timetable.html', context)
+
+
+
+@login_required
+def add_event(request):
+    if request.method == 'POST':
+        form = PersonalEventForm(request.POST, user=request.user)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.user = request.user
+            event.save()
+            messages.success(request, 'Event added successfully!')
+            return redirect('portal:timetable')
+    else:
+        form = PersonalEventForm(user=request.user)
+    
+    return render(request, 'portal/event_form.html', {
+        'form': form,
+        'title': 'Add New Event'
+    })
+
+@login_required
+def edit_event(request, event_id):
+    event = get_object_or_404(PersonalEvent, id=event_id, user=request.user)
+    if request.method == 'POST':
+        form = PersonalEventForm(request.POST, instance=event, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Event updated successfully!')
+            return redirect('portal:timetable')
+    else:
+        form = PersonalEventForm(instance=event, user=request.user)
+    
+    return render(request, 'portal/event_form.html', {
+        'form': form,
+        'title': 'Edit Event'
+    })
+
+@login_required
+def delete_event(request, event_id):
+    event = get_object_or_404(PersonalEvent, id=event_id, user=request.user)
+    if request.method == 'POST':
+        event.delete()
+        messages.success(request, 'Event deleted successfully!')
+    return redirect('portal:timetable')
+
+@login_required
+def timetable_settings(request):
+    timetable = get_object_or_404(PersonalTimetable, user=request.user)
+    if request.method == 'POST':
+        form = TimetableSettingsForm(request.POST, instance=timetable)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Settings updated!')
+            return redirect('portal:timetable')
+    else:
+        form = TimetableSettingsForm(instance=timetable)
+    
+    return render(request, 'portal/timetable_settings.html', {
+        'form': form
+    })
+
+
+
+@login_required
+def day_view(request, date_string=None):
+    timetable, _ = PersonalTimetable.objects.get_or_create(user=request.user)
+    
+    try:
+        if date_string:
+            current_date = datetime.strptime(date_string, '%Y-%m-%d').date()
+        else:
+            current_date = timezone.now().date()
+    except ValueError:
+        current_date = timezone.now().date()
+        return redirect('portal:day_view_with_date', date_string=current_date.strftime('%Y-%m-%d'))
+    
+    current_day = current_date.strftime('%A')
+    prev_day = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
+    next_day = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
+    
+    events = PersonalEvent.objects.filter(user=request.user, day=current_day)
+    institutional_events = []
+    
+    if timetable.show_institutional_classes:
+        if hasattr(request.user, 'timetable_lecturer'):
+            institutional_events = LectureSchedule.objects.filter(
+                lecturer=request.user.timetable_lecturer,
+                day=current_day
+            ).select_related('course', 'room', 'time_slot')
+        else:
+            try:
+                student_classes = request.user.student_classes.all()
+                institutional_events = LectureSchedule.objects.filter(
+                    assigned_class__in=student_classes,
+                    day=current_day
+                ).select_related('course', 'room', 'time_slot')
+            except AttributeError:
+                pass
+    
+    context = {
+        'timetable': timetable,
+        'events': events,
+        'institutional_events': institutional_events,
+        'time_slots': TimeSlot.objects.all().order_by('start_time'),
+        'current_day': current_day,
+        'current_date': current_date,
+        'prev_day': prev_day,
+        'next_day': next_day,
+    }
+    return render(request, 'portal/day_view.html', context)

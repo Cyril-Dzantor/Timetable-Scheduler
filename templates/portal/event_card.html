@@ -1,0 +1,19 @@
+<div class="event" style="border-left: 4px solid {{ event.event_type.color }};">
+    <div class="event-header">
+        <strong>{{ event.title }}</strong>
+        <div class="event-actions">
+            <a href="{% url 'portal:edit_event' event.id %}" class="btn btn-sm btn-link" title="Edit">
+                <i class="fas fa-edit"></i>
+            </a>
+            <a href="{% url 'portal:delete_event' event.id %}" class="btn btn-sm btn-link text-danger" title="Delete">
+                <i class="fas fa-trash-alt"></i>
+            </a>
+        </div>
+    </div>
+    <div class="event-body">
+        {% if event.location %}<small>{{ event.location }}</small>{% endif %}
+        {% if event.description %}
+            <p class="mb-0">{{ event.description|truncatechars:30 }}</p>
+        {% endif %}
+    </div>
+</div>

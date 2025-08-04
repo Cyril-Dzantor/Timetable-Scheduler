@@ -1,0 +1,46 @@
+<div class="table-responsive">
+    <table class="table table-bordered timetable">
+        <thead>
+            <tr>
+                <th style="width: 10%">Time</th>
+                {% for day in days %}
+                    <th {% if day == today %}class="table-primary"{% endif %}>{{ day }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for slot in time_slots %}
+            <tr>
+                <td class="time-slot">
+                    {{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}
+                </td>
+                {% for day in days %}
+                    <td class="day-slot" data-day="{{ day }}" data-slot="{{ slot.id }}">
+                        {% for event in events %}
+                            {% if event.day == day and event.time_slot.id == slot.id %}
+                                {% include 'portal/event_card.html' %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if timetable.show_institutional_classes %}
+                            {% for event in institutional_events %}
+                                {% if event.day == day and event.time_slot.id == slot.id %}
+                                    <div class="event institutional-event">
+                                        <div class="event-header">
+                                            <strong>{{ event.course.code }}</strong>
+                                            <small class="text-muted">{{ event.room.code }}</small>
+                                        </div>
+                                        <div class="event-body">
+                                            <small>{{ event.course.title }}</small>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

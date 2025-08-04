@@ -16,8 +16,7 @@ from Users.models import StudentProfile
 
 
 # Create your views here.
-def timetable(request):
-    return HttpResponse('Test')
+
 
 def rooms(request):
     rooms = Room.objects.all()

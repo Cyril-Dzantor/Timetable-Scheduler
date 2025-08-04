@@ -1,0 +1,113 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h4>{{ title }}</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" id="eventForm">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.title.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.event_type.id_for_label }}" class="form-label">Event Type</label>
+                        {{ form.event_type }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.day.id_for_label }}" class="form-label">Day</label>
+                        {{ form.day }}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.time_slot.id_for_label }}" class="form-label">Time Slot</label>
+                        {{ form.time_slot }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.location.id_for_label }}" class="form-label">Location</label>
+                        {{ form.location }}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                    {{ form.description }}
+                </div>
+                
+                <div class="mb-3 form-check">
+                    {{ form.is_recurring }}
+                    <label class="form-check-label" for="{{ form.is_recurring.id_for_label }}">
+                        Recurring Event
+                    </label>
+                </div>
+                
+                <div class="mb-3" id="recurringPatternField" style="display: none;">
+                    <label for="{{ form.recurring_pattern.id_for_label }}" class="form-label">Recurring Pattern</label>
+                    {{ form.recurring_pattern }}
+                </div>
+                
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <a href="{% url 'portal:timetable' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show/hide recurring pattern field
+    const isRecurring = document.getElementById('{{ form.is_recurring.id_for_label }}');
+    const patternField = document.getElementById('recurringPatternField');
+    
+    isRecurring.addEventListener('change', function() {
+        patternField.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    // Initialize visibility
+    patternField.style.display = isRecurring.checked ? 'block' : 'none';
+});
+</script>
+
+<style>
+/* Add some basic form styling */
+#eventForm .form-control {
+    margin-bottom: 10px;
+}
+#eventForm label {
+    font-weight: 500;
+}
+.invalid-feedback {
+    color: #dc3545;
+    font-size: 0.875em;
+}
+
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
+{% endblock %}

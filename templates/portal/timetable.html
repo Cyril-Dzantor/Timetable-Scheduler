@@ -1,0 +1,98 @@
+{% extends 'portal/base.html' %}
+{% load static %}
+
+
+{% block extra_head %}
+<link href="{% static 'css/timetable.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>My Timetable</h2>
+        <div>
+            <a href="{% url 'portal:add_event' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add Event
+            </a>
+            <a href="{% url 'portal:timetable_settings' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if current_view == 'day' %}active{% endif %}" 
+                       href="?view=day">Day View</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if current_view == 'week' %}active{% endif %}" 
+                       href="?view=week">Week View</a>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="card-body">
+            {% if current_view == 'week' %}
+                {% include 'portal/week_view.html' %}
+            {% else %}
+                {% include 'portal/day_view.html' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.timetable {
+    table-layout: fixed;
+}
+
+.timetable th {
+    text-align: center;
+    background-color: #f8f9fa;
+}
+
+.time-slot {
+    font-size: 0.8rem;
+    text-align: right;
+    padding-right: 5px;
+    background-color: #f8f9fa;
+}
+
+.day-slot {
+    height: 80px;
+    vertical-align: top;
+    padding: 2px;
+    position: relative;
+}
+
+.day-slot:hover {
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.event {
+    background-color: white;
+    border-radius: 3px;
+    padding: 5px;
+    margin-bottom: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-size: 0.8rem;
+}
+
+.event-header {
+    display: flex;
+    justify-content: space-between;
+}
+
+.event-actions {
+    visibility: hidden;
+}
+
+.event:hover .event-actions {
+    visibility: visible;
+}
+</style>
+{% endblock %}
