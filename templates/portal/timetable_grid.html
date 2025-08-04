@@ -19,6 +19,12 @@
                                         Timetable - Class {{ selected_class }}
                                     {% elif selected_lecturer %}
                                         Timetable - Lecturer {{ selected_lecturer }}
+                                    {% elif selected_room %}
+                                        📚 Timetable - Room {{ selected_room }}
+                                    {% elif selected_class and selected_room %}
+                                        📚 Timetable - Class {{ selected_class }} in Room {{ selected_room }}
+                                    {% elif selected_lecturer and selected_room %}
+                                        👨‍🏫 Timetable - {{ selected_lecturer }} in Room {{ selected_room }}
                                     {% else %}
                                         Complete Timetable
                                     {% endif %}
@@ -34,7 +40,7 @@
                                                 <i class="fas fa-home"></i> Go to Home
                                             </a>
                                         {% else %}
-                                            <a href="{% url 'home/home' %}" class="btn btn-sm btn-success">
+                                            <a href="{% url 'home' %}" class="btn btn-sm btn-success">
                                                 <i class="fas fa-home"></i> Go to Home
                                             </a>   
                                         {% endif %}                    
@@ -58,6 +64,17 @@
                                         {% for class in all_classes %}
                                         <option value="{{ class.code }}" {% if selected_class == class.code %}selected{% endif %}>
                                             {{ class.code }} - {{ class.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="room_filter" class="form-label">Filter by Room:</label>
+                                    <select name="room_filter" id="room_filter" class="form-select">
+                                        <option value="">All Rooms</option>
+                                        {% for room in all_rooms %}
+                                        <option value="{{ room.code }}" {% if selected_room == room.code %}selected{% endif %}>
+                                            {{ room.code }} ({{ room.room_type }})
                                         </option>
                                         {% endfor %}
                                     </select>
@@ -100,6 +117,9 @@
                                 {% if selected_lecturer %}
                                     <span class="badge bg-info me-2">Lecturer: {{ selected_lecturer }}</span>
                                 {% endif %}
+                                {% if selected_room %}
+                                    <span class="badge bg-secondary me-2">Room: {{ selected_room }}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -131,6 +151,16 @@
                                                 {% for lecturer in all_lecturers|slice:":5" %}
                                                 <a href="?lecturer_filter={{ lecturer.name }}" class="btn btn-outline-info btn-sm">
                                                     {{ lecturer.name|truncatechars:15 }}
+                                                </a>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6>Popular Rooms:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for room in all_rooms|slice:":5" %}
+                                                <a href="?room_filter={{ room.code }}" class="btn btn-outline-secondary btn-sm">
+                                                    {{ room.code }}
                                                 </a>
                                                 {% endfor %}
                                             </div>
@@ -214,6 +244,10 @@
                                     <div class="col-md-3">
                                         <strong>Lecturers:</strong> 
                                         <span class="badge bg-warning">{{ all_lecturers|length }}</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Rooms:</strong> 
+                                        <span class="badge bg-secondary">{{ all_rooms|length }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -393,6 +427,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const classFilter = document.getElementById('class_filter');
     const lecturerFilter = document.getElementById('lecturer_filter');
+    const roomFilter = document.getElementById('room_filter');
     
     // Auto-submit when class filter changes
     classFilter.addEventListener('change', function() {
@@ -401,6 +436,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Auto-submit when lecturer filter changes
     lecturerFilter.addEventListener('change', function() {
+        this.form.submit();
+    });
+
+    roomFilter.addEventListener('change', function() {  
         this.form.submit();
     });
     

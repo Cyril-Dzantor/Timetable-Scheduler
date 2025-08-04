@@ -1,0 +1,282 @@
+{% extends base_template %}
+{% block title %}My Exam Schedule{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">
+                <i class="fas fa-calendar-alt me-2"></i>
+                My Exam Schedule
+            </h2>
+            <button onclick="printExamSlips()" class="btn btn-light">
+                <i class="fas fa-print me-1"></i> Print Exam Slips
+            </button>
+        </div>
+        
+        <div class="card-body">
+            <!-- Regular View -->
+            <div class="screen-view">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="card-title">
+                            <i class="fas fa-user-graduate me-2"></i>
+                            {{ student_name }}
+                        </h5>
+                        <p class="card-text">
+                            <i class="fas fa-id-card me-2"></i>
+                            Index: {{ student_index }}
+                        </p>
+                        <p class="card-text">
+                            <i class="fas fa-users-class me-2"></i>
+                            Class: {{ student_class }}
+                        </p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-calendar-week me-1"></i> Grid View
+                        </a>
+                    </div>
+                </div>
+                
+                {% if exams %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Day</th>
+                                <th>Time</th>
+                                <th>Course</th>
+                                <th>Location</th>
+                                <th>Seat Info</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for exam in exams %}
+                            <tr>
+                                <td>{{ exam.date|date:"M d, Y" }}</td>
+                                <td>{{ exam.day }}</td>
+                                <td>
+                                    {{ exam.start_time }} - {{ exam.end_time }}
+                                    <br><small class="text-muted">{{ exam.duration }}</small>
+                                </td>
+                                <td>
+                                    <strong>{{ exam.course_code }}</strong>
+                                    <br>{{ exam.course_title }}
+                                </td>
+                                <td>
+                                    {% for room in exam.rooms %}
+                                        <div class="mb-1">
+                                            <i class="fas fa-door-open me-1"></i>
+                                            <strong>{{ room.code }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ room.building }}</small>
+                                            <br>
+                                            <small class="text-muted">{{ room.college }}</small>
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for room in exam.rooms %}
+                                        <div class="mb-1">
+                                            <i class="fas fa-chair me-1"></i>
+                                            {{ room.seat_info|default:"Not assigned" }}
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <h5><i class="fas fa-info-circle me-2"></i>Exam Instructions</h5>
+                    <ul class="mb-0">
+                        <li>Arrive at least 30 minutes before your exam starts</li>
+                        <li>Bring your student ID and required materials</li>
+                        <li>Contact your lecturer if you have any questions</li>
+                    </ul>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>No Exams Scheduled</h5>
+                    <p class="mb-0">You don't have any exams scheduled yet for your registered courses.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Printable View (hidden on screen) -->
+            <div class="print-view" style="display: none;">
+                <h4 class="text-center">
+                    END OF SEMESTER EXAMINATION TIMETABLE<br>
+                    {% now "Y" %}/{% now "Y"|add:"1" %} ACADEMIC YEAR
+                </h4>
+                <p class="text-center">
+                    Please print this schedule and return it to the Examination center for each session
+                </p>
+                
+                {% for exam in exams %}
+                <div class="exam-slip mb-4 p-3 border-bottom">
+                    <p><strong>Name:</strong> {{ student_name|upper }}</p>
+                    <p><strong>Index Number:</strong> {{ student_index }}</p>
+                    <p><strong>Course:</strong> {{ exam.course_code }} - {{ exam.course_title }}</p>
+                    <p><strong>Time:</strong> ({{ exam.start_time }}-{{ exam.end_time }})</p>
+                    <p><strong>Date:</strong> {{ exam.day }}, {{ exam.date|date:"j F Y" }}</p>
+                    {% for room in exam.rooms %}
+                        <p><strong>Room:</strong> {{ room.code }}</p>
+                        <p><strong>College:</strong> {{ room.college }}</p>
+                        <p><strong>Building:</strong> {{ room.building|upper }}</p>
+                    {% empty %}
+                        <p><strong>Room:</strong> TBA</p>
+                        <p><strong>College:</strong> College Not Specified</p>
+                        <p><strong>Building:</strong> TO BE ANNOUNCED</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                
+                <div class="text-center mt-4">
+                    <small>Generated on {% now "j F Y" %} from Unischeduler</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Shared screen/print styles for exam slips */
+    .exam-slip {
+        page-break-inside: avoid;
+        margin-bottom: 30px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed #000;
+        position: relative;
+    }
+
+    .exam-slip::after {
+        content: "✂ Cut here";
+        font-size: 10pt;
+        position: absolute;
+        bottom: -14px;
+        left: 0;
+        color: #444;
+        font-style: italic;
+    }
+
+    /* Print-specific styles */
+    @media print {
+        body {
+            background: white;
+            color: black;
+            font-size: 12pt;
+        }
+
+        .card-header, .btn, .screen-view {
+            display: none !important;
+        }
+
+        .print-view {
+            display: block !important;
+        }
+
+        h4 {
+            font-size: 14pt;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 5px;
+            font-size: 11pt;
+        }
+    }
+
+    /* Hide print view on screen */
+    .print-view {
+        display: none;
+    }
+
+    .table th {
+        white-space: nowrap;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+</style>
+
+
+
+<script>
+function printExamSlips() {
+    const printContent = document.querySelector('.print-view').cloneNode(true);
+    printContent.style.display = 'block';
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Exam Slips - {{ student_name }}</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 12pt;
+                    margin: 20px;
+                }
+
+                h4 {
+                    font-size: 14pt;
+                    text-align: center;
+                    margin-bottom: 10px;
+                }
+
+                .text-center {
+                    text-align: center;
+                }
+
+                .exam-slip {
+                    margin-bottom: 30px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px dashed #000;
+                    page-break-inside: avoid;
+                    position: relative;
+                }
+
+                .exam-slip::after {
+                    content: "✂ Cut here";
+                    font-size: 10pt;
+                    position: absolute;
+                    bottom: -14px;
+                    left: 0;
+                    color: #444;
+                    font-style: italic;
+                }
+
+                p {
+                    margin-bottom: 5px;
+                }
+
+                @page {
+                    size: auto;
+                    margin: 10mm;
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent.innerHTML}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 200);
+    };
+}
+
+</script>
+{% endblock %}

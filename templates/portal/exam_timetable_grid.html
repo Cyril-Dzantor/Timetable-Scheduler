@@ -13,17 +13,31 @@
                             📝 My Exam Schedule
                         {% elif user_type == 'lecturer' %}
                             📝 My Exam Invigilation Schedule
+                        {% elif selected_class and selected_date and selected_room %}
+                            📝 Exam Schedule - Class {{ selected_class }} in Room {{ selected_room }} on {{ selected_date }}
+                        {% elif selected_class and selected_room %}
+                            📝 Exam Schedule - Class {{ selected_class }} in Room {{ selected_room }}
+                        {% elif selected_date and selected_room %}
+                            📝 Exam Schedule - Room {{ selected_room }} on {{ selected_date }}
                         {% elif selected_class and selected_date %}
                             📝 Exam Schedule - Class {{ selected_class }} on {{ selected_date }}
                         {% elif selected_class %}
                             📝 Exam Schedule - Class {{ selected_class }}
                         {% elif selected_date %}
                             📝 Exam Schedule - Date {{ selected_date }}
+                        {% elif selected_room %}
+                            📝 Exam Schedule - Room {{ selected_room }}
                         {% else %}
                             📝 Complete Exam Schedule
                         {% endif %}
                     </h4>
                     <div class="d-flex gap-2">
+                        {% if user_type == 'student' or user_type == 'lecturer' %}
+                            <a href="{% url 'portal:exam_schedule_list' %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-list me-1"></i> List View
+                            </a>
+                        {% endif %}
+                        
                         {% if user.is_authenticated %}
                             {% if user.is_student %}
                                 <a href="{% url 'portal:student_dashboard' %}" class="btn btn-sm btn-success">
@@ -52,7 +66,7 @@
                     <div class="row mb-3">
                         <div class="col-md-12">
                             <form method="GET" class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label for="class_filter" class="form-label">Filter by Class:</label>
                                     <select name="class_filter" id="class_filter" class="form-select">
                                         <option value="">All Classes</option>
@@ -63,7 +77,7 @@
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label for="date_filter" class="form-label">Filter by Date:</label>
                                     <select name="date_filter" id="date_filter" class="form-select">
                                         <option value="">All Dates</option>
@@ -74,7 +88,18 @@
                                         {% endfor %}
                                     </select>
                                 </div>
-                                <div class="col-md-4 d-flex align-items-end">
+                                <div class="col-md-3">
+                                    <label for="room_filter" class="form-label">Filter by Room:</label>
+                                    <select name="room_filter" id="room_filter" class="form-select">
+                                        <option value="">All Rooms</option>
+                                        {% for room in all_rooms %}
+                                        <option value="{{ room.code }}" {% if selected_room == room.code %}selected{% endif %}>
+                                            {{ room.code }} ({{ room.room_type }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
                                     <div class="d-flex gap-2">
                                         <button type="submit" class="btn btn-warning">
                                             <i class="fas fa-filter"></i> Apply Filters
@@ -90,7 +115,7 @@
                     {% endif %}
 
                     <!-- Active Filters Display -->
-                    {% if selected_class or selected_date %}
+                    {% if selected_class or selected_date or selected_room %}
                     <div class="row mb-3">
                         <div class="col-12">
                             <div class="alert alert-warning">
@@ -100,6 +125,9 @@
                                 {% endif %}
                                 {% if selected_date %}
                                     <span class="badge bg-danger me-2">Date: {{ selected_date }}</span>
+                                {% endif %}
+                                {% if selected_room %}
+                                    <span class="badge bg-info me-2">Room: {{ selected_room }}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -116,7 +144,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <h6>Popular Classes:</h6>
                                             <div class="d-flex flex-wrap gap-2">
                                                 {% for class in all_classes|slice:":5" %}
@@ -126,12 +154,22 @@
                                                 {% endfor %}
                                             </div>
                                         </div>
-                                        <div class="col-md-6">
+                                        <div class="col-md-4">
                                             <h6>Upcoming Exam Dates:</h6>
                                             <div class="d-flex flex-wrap gap-2">
                                                 {% for date in exam_dates|slice:":5" %}
                                                 <a href="?date_filter={{ date|date:'Y-m-d' }}" class="btn btn-outline-danger btn-sm">
                                                     {{ date|date:'M j' }}
+                                                </a>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6>Popular Rooms:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for room in all_rooms|slice:":5" %}
+                                                <a href="?room_filter={{ room.code }}" class="btn btn-outline-info btn-sm">
+                                                    {{ room.code }}
                                                 </a>
                                                 {% endfor %}
                                             </div>
@@ -198,13 +236,17 @@
                                         <strong>Exam Time Slots:</strong> 
                                         <span class="badge bg-info">{{ time_slots|length }}</span>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <strong>Classes:</strong> 
                                         <span class="badge bg-primary">{{ all_classes|length }}</span>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <strong>Exam Dates:</strong> 
                                         <span class="badge bg-danger">{{ exam_dates|length }}</span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <strong>Rooms:</strong> 
+                                        <span class="badge bg-info">{{ all_rooms|length }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -437,6 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-submit form when filters change
     const classFilter = document.getElementById('class_filter');
     const dateFilter = document.getElementById('date_filter');
+    const roomFilter = document.getElementById('room_filter');
     
     if (classFilter) {
         classFilter.addEventListener('change', function() {
@@ -446,6 +489,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (dateFilter) {
         dateFilter.addEventListener('change', function() {
+            this.form.submit();
+        });
+    }
+    
+    if (roomFilter) {
+        roomFilter.addEventListener('change', function() {
             this.form.submit();
         });
     }

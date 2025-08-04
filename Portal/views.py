@@ -2,16 +2,19 @@ from django.shortcuts import render,redirect,get_object_or_404
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from Scheduler.models import LectureSchedule, ExamSchedule
-from Timetable.models import TimeSlot, Class, Lecturer, Course,ExamDate
+from Timetable.models import TimeSlot, Class, Lecturer, Course,ExamDate,Room 
 from collections import defaultdict
 from Users.models import StudentProfile
 from django.db.models import Q
 from django.contrib import messages
+from django.db.models import Prefetch
+
 
 from datetime import datetime,timedelta
 from django.utils import timezone
 
 from .models import PersonalEvent, PersonalTimetable, PersonalEventType
+from Scheduler.models import ExamRoomAssignment,ExamRoomClassAllocation,StudentExamAllocation
 from .forms import PersonalEventForm, TimetableSettingsForm
 
 from Users.models import User
@@ -64,11 +67,13 @@ def timetable_grid(request):
     selected_class = request.GET.get('class_filter', '')
     selected_lecturer = request.GET.get('lecturer_filter', '')
     selected_course = request.GET.get('course_filter', '')
+    selected_room = request.GET.get('room_filter', '')  # Add room filter
     
-    # Get all available classes and lecturers for filter dropdowns
+    # Get all available classes, lecturers, courses, and rooms for filter dropdowns
     all_classes = Class.objects.all().order_by('code')
     all_lecturers = Lecturer.objects.filter(is_active=True).order_by('name')
     all_courses = Course.objects.all().order_by('code')
+    all_rooms = Room.objects.all().order_by('code')  # Add rooms query
     
     # Base query for schedules
     schedules = LectureSchedule.objects.all().select_related(
@@ -80,14 +85,13 @@ def timetable_grid(request):
         # STUDENT VIEW: Filter by registered courses and class
         student_profile = user.student_profile
         registered_courses = student_profile.registered_courses.all()
-        student_class = student_profile.class_code  # Get the student's class from their profile
+        student_class = student_profile.class_code
         
         if registered_courses.exists():
             schedules = schedules.filter(
                 course__in=registered_courses,
-                assigned_class__code=student_class  # Filter by student's class
+                assigned_class__code=student_class
             )
-            print(f"Showing timetable for student {user.email} - Registered courses: {[c.code for c in registered_courses]}, Class: {student_class}")
         else:
             messages.warning(request, "You haven't registered for any courses yet.")
             schedules = schedules.none()
@@ -95,10 +99,9 @@ def timetable_grid(request):
     elif user.is_lecturer:
         # LECTURER VIEW: Get the related Lecturer instance
         try:
-            lecturer = user.timetable_lecturer  # Using the OneToOneField from Lecturer model
+            lecturer = user.timetable_lecturer
             if lecturer:
                 schedules = schedules.filter(lecturer=lecturer)
-                print(f"Showing timetable for lecturer {user.email}")
             else:
                 messages.error(request, "Lecturer record not found")
                 schedules = schedules.none()
@@ -106,10 +109,6 @@ def timetable_grid(request):
             messages.error(request, f"Error accessing lecturer data: {str(e)}")
             schedules = schedules.none()
             
-    elif user.is_admin:
-        # ADMIN VIEW: Show all schedules (with optional filters)
-        print(f"Admin view - showing all schedules")
-        
     # Apply additional filters (for admin or when manually selected)
     if selected_course and (user.is_admin or not user.is_student):
         schedules = schedules.filter(course__code=selected_course)
@@ -119,6 +118,9 @@ def timetable_grid(request):
     
     if selected_lecturer and (user.is_admin or not user.is_lecturer):
         schedules = schedules.filter(lecturer__name=selected_lecturer)
+    
+    if selected_room:  # Add room filter
+        schedules = schedules.filter(room__code=selected_room)
     
     # Create grid data structure
     grid_data = defaultdict(lambda: defaultdict(list))
@@ -150,9 +152,11 @@ def timetable_grid(request):
         'all_classes': all_classes,
         'all_lecturers': all_lecturers,
         'all_courses': all_courses,
+        'all_rooms': all_rooms,  # Add to context
         'selected_class': selected_class,
         'selected_lecturer': selected_lecturer,
         'selected_course': selected_course,
+        'selected_room': selected_room,  # Add to context
         'base_template': base_template
     }
     
@@ -188,14 +192,16 @@ def exam_timetable_grid(request):
     # Get all time slots marked as exam slots
     exam_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
     
-    # Get all classes and courses for filters
+    # Get all classes, courses, and ROOMS for filters
     all_classes = Class.objects.all().order_by('code')
     all_courses = Course.objects.all().order_by('code')
+    all_rooms = Room.objects.all().order_by('code')  # Add this line to get all rooms
     
     # 2. HANDLE FILTERS
     selected_class = request.GET.get('class_filter', '')
     selected_date_str = request.GET.get('date_filter', '')
     selected_course = request.GET.get('course_filter', '')
+    selected_room = request.GET.get('room_filter', '')  # Add room filter parameter
     
     # Initialize base query
     exam_schedules = ExamSchedule.objects.select_related(
@@ -235,6 +241,10 @@ def exam_timetable_grid(request):
             exam_schedules = exam_schedules.filter(date=selected_date)
         except ValueError:
             messages.error(request, "Invalid date format")
+
+    # ADD ROOM FILTER LOGIC
+    if selected_room:
+        exam_schedules = exam_schedules.filter(room_assignments__room__code=selected_room).distinct()
     
     # 5. BUILD GRID DATA STRUCTURE
     grid_data = defaultdict(lambda: defaultdict(list))
@@ -268,7 +278,7 @@ def exam_timetable_grid(request):
                 'rooms': rooms
             })
     
-    # 6. DETERMINE BASE TEMPLATE (using your original logic)
+    # 6. DETERMINE BASE TEMPLATE
     if user.is_authenticated:
         if user.is_student:
             base_template = 'portal/base.html'
@@ -279,23 +289,144 @@ def exam_timetable_grid(request):
     else:
         base_template = 'home/home.html'
     
-    # 7. PREPARE CONTEXT
+    # 7. PREPARE CONTEXT - ADD all_rooms and selected_room
     context = {
-        'days': day_names,  # For column headers ('Monday', 'Tuesday')
-        'dates': date_strings,  # Actual dates ('2023-12-25')
+        'days': day_names,
+        'dates': date_strings,
         'time_slots': exam_time_slots,
         'grid_data': dict(grid_data),
         'all_classes': all_classes,
         'all_courses': all_courses,
+        'all_rooms': all_rooms,  # Add this line
         'exam_dates': exam_dates,
         'selected_class': selected_class,
         'selected_date': selected_date_str,
         'selected_course': selected_course,
+        'selected_room': selected_room,  # Add this line
         'base_template': base_template,
         'user_type': 'student' if user.is_student else 'lecturer' if user.is_lecturer else 'admin'
     }
     
     return render(request, 'portal/exam_timetable_grid.html', context)
+
+@login_required
+def student_exam_schedule_list(request):
+    """
+    Student-specific exam timetable in list view format showing only the room
+    where the student has been specifically assigned
+    """
+    user = request.user
+    
+    if not (user.is_student and hasattr(user, 'student_profile')):
+        messages.error(request, "This view is only available to students")
+        return redirect('portal:home')
+    
+    # Get student's profile information
+    student_profile = user.student_profile
+    student_index = student_profile.index_number
+    student_class = student_profile.class_code
+    
+    # Get exam schedules with building and college data
+    exam_schedules = ExamSchedule.objects.filter(
+        course__in=student_profile.registered_courses.all()
+    ).select_related(
+        'course', 'time_slot'
+    ).prefetch_related(
+        Prefetch('room_assignments',
+                queryset=ExamRoomAssignment.objects.select_related(
+                    'room__building__college'  # Fetch building and college
+                )
+                .prefetch_related(
+                    Prefetch('class_allocations',
+                            queryset=ExamRoomClassAllocation.objects.filter(
+                                class_assigned__code=student_class
+                            )
+                    )
+                )
+        )
+    ).order_by('date', 'time_slot__start_time').distinct()
+    
+    # Get student allocations with building and college data
+    student_allocations = {
+        alloc.exam_id: alloc 
+        for alloc in StudentExamAllocation.objects.filter(
+            student_index=student_index,
+            exam__in=[exam.id for exam in exam_schedules]
+        ).select_related(
+            'room__building__college'  # Fetch building and college
+        )
+    }
+    
+    # Prepare exam data
+    exams = []
+    for exam in exam_schedules:
+        # Calculate duration
+        start_time = exam.time_slot.start_time
+        end_time = exam.time_slot.end_time
+        duration_minutes = (end_time.hour * 60 + end_time.minute) - (start_time.hour * 60 + start_time.minute)
+        duration = f"{duration_minutes} minutes"
+        
+        # Get student's specific allocation
+        allocation = student_allocations.get(exam.id)
+        
+        rooms = []
+        if allocation:
+            # Student has specific room assignment
+            room = allocation.room
+            college = getattr(room.building.college, 'name', None) if hasattr(room, 'building') else None
+            
+            rooms.append({
+                'code': room.code,
+                'building': getattr(room.building, 'name', 'N/A'),
+                'college': college or "College Not Specified",  # Actual college name
+                'seat_info': f"Column {allocation.column_number}",
+                'is_assigned': True
+            })
+        else:
+            # Fallback to class allocation
+            for room_assignment in exam.room_assignments.all():
+                for alloc in room_assignment.class_allocations.all():
+                    if alloc.class_assigned.code == student_class:
+                        seat_info = f"Columns: {alloc.columns_used}" if alloc.columns_used else ""
+                        building = getattr(room_assignment, 'room', None)
+                        college = getattr(building.building.college, 'name', None) if building else None
+                        
+                        rooms.append({
+                            'code': room_assignment.room.code,
+                            'building': getattr(room_assignment.room.building, 'name', 'N/A'),
+                            'college': college or "College Not Specified",  # Actual college name
+                            'seat_info': seat_info,
+                            'is_assigned': False
+                        })
+                        break
+        
+        exams.append({
+            'course_code': exam.course.code,
+            'course_title': exam.course.title,
+            'date': exam.date,
+            'day': exam.date.strftime('%A'),
+            'start_time': start_time.strftime('%H:%M'),
+            'end_time': end_time.strftime('%H:%M'),
+            'duration': duration,
+            'rooms': rooms if rooms else [{
+                'code': 'TBA', 
+                'building': 'To be announced', 
+                'college': "College Not Specified",
+                'seat_info': '', 
+                'is_assigned': False
+            }]
+        })
+    
+    context = {
+        'exams': exams,
+        'base_template': 'portal/base.html',
+        'student_name': user.get_full_name() or user.username,
+        'student_class': student_class,
+        'student_index': student_index,
+        'current_year': f"{datetime.now().year}/{datetime.now().year + 1}"
+    }
+    
+    return render(request, 'portal/exam_schedule_list.html', context)
 
 
 def check_schedule_conflicts(schedule):
