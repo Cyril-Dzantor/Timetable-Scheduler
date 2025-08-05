@@ -21,23 +21,49 @@ from Users.models import User
 
 @login_required
 def student_dashboard(request):
-    # Get the current student's department and level (you'll need to adjust this based on your model)
-    student = request.user.student_profile  # Assuming you have a Student model linked to User
+    student = request.user.student_profile
     
-    # Check if class timetable exists for this student's department and level
-    class_timetable_exists = LectureSchedule.objects.exists()
+    # Check if class timetable exists for this student's class_code
+    class_timetable_exists = LectureSchedule.objects.filter(
+        assigned_class__code=student.class_code
+    ).exists()
     
-    # Check if exam timetable exists
-    exam_timetable_exists = ExamSchedule.objects.exists()
+    # Check if exam timetable exists for the student's registered courses
+    exam_timetable_exists = ExamSchedule.objects.filter(
+        course__in=student.registered_courses.all()
+    ).exists()
     
     context = {
-        'class_timetable': class_timetable_exists,
-        'exam_timetable': exam_timetable_exists,
+        'class_timetable_exists': class_timetable_exists,
+        'exam_timetable_exists': exam_timetable_exists,
     }
     return render(request, 'portal/student_dashboard.html', context)
 
+
+
+@login_required
 def lecturer_dashboard(request):
-    return render(request, "portal/lecturer_dashboard.html")
+    # Get the Lecturer instance associated with this user
+    try:
+        lecturer = Lecturer.objects.get(user=request.user)
+    except Lecturer.DoesNotExist:
+        lecturer = None
+    
+    # Check for lectures
+    lectures_exist = LectureSchedule.objects.filter(
+        lecturer=lecturer
+    ).exists() if lecturer else False
+    
+    # Check for exam duties
+    exams_exist = ExamRoomAssignment.objects.filter(
+        proctors=lecturer
+    ).exists() if lecturer else False
+    
+    context = {
+        'lectures': lectures_exist,
+        'exams': exams_exist,
+    }
+    return render(request, "portal/lecturer_dashboard.html", context)
 
 @login_required
 def portal_profile(request):
@@ -176,15 +202,15 @@ def lecturer_timetable(request):
     """
     return timetable_grid(request)
 
+
 @login_required
 def exam_timetable_grid(request):
     """
-    Fully working exam timetable grid view with proper date handling
+    Exam timetable grid view with support for teaching vs proctoring views
     """
     user = request.user
     
-    # 1. GET ALL NECESSARY DATA
-    # Get all distinct exam dates from ExamSchedule (not ExamDate)
+    # Get all distinct exam dates
     exam_dates = ExamSchedule.objects.dates('date', 'day').distinct().order_by('date')
     date_strings = [date.strftime('%Y-%m-%d') for date in exam_dates]
     day_names = [date.strftime('%A') for date in exam_dates]
@@ -192,16 +218,17 @@ def exam_timetable_grid(request):
     # Get all time slots marked as exam slots
     exam_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
     
-    # Get all classes, courses, and ROOMS for filters
+    # Get all classes, courses, and rooms for filters
     all_classes = Class.objects.all().order_by('code')
     all_courses = Course.objects.all().order_by('code')
-    all_rooms = Room.objects.all().order_by('code')  # Add this line to get all rooms
+    all_rooms = Room.objects.all().order_by('code')
     
-    # 2. HANDLE FILTERS
+    # Handle filters
     selected_class = request.GET.get('class_filter', '')
     selected_date_str = request.GET.get('date_filter', '')
     selected_course = request.GET.get('course_filter', '')
-    selected_room = request.GET.get('room_filter', '')  # Add room filter parameter
+    selected_room = request.GET.get('room_filter', '')
+    view_type = request.GET.get('view_type', 'teaching')  # Default to teaching view
     
     # Initialize base query
     exam_schedules = ExamSchedule.objects.select_related(
@@ -211,19 +238,22 @@ def exam_timetable_grid(request):
         'room_assignments__room'
     )
     
-    # 3. APPLY ROLE-BASED FILTERING
+    # Apply role-based filtering
     if user.is_student and hasattr(user, 'student_profile'):
         registered_courses = user.student_profile.registered_courses.all()
-        if registered_courses.exists():
-            exam_schedules = exam_schedules.filter(course__in=registered_courses)
+        exam_schedules = exam_schedules.filter(course__in=registered_courses) if registered_courses.exists() else exam_schedules.none()
+    
+    elif user.is_lecturer and hasattr(user, 'lecturer_profile'):
+        if view_type == 'proctoring':
+            # Only show rooms where this lecturer is proctoring
+            exam_schedules = exam_schedules.filter(
+                room_assignments__proctors__user=user
+            ).distinct()
         else:
-            messages.warning(request, "You haven't registered for any courses yet")
-            exam_schedules = exam_schedules.none()
+            # Default to teaching exams
+            exam_schedules = exam_schedules.filter(course__lecturers__user=user)
     
-    elif user.is_lecturer and hasattr(user, 'timetable_lecturer'):
-        exam_schedules = exam_schedules.filter(course__lecturers=user.timetable_lecturer)
-    
-    # 4. APPLY ADDITIONAL FILTERS
+    # Apply additional filters
     if selected_course:
         exam_schedules = exam_schedules.filter(course__code=selected_course)
     
@@ -232,7 +262,7 @@ def exam_timetable_grid(request):
         if class_obj:
             exam_schedules = exam_schedules.filter(
                 Q(course__in=class_obj.courses.all()) |
-                Q(room_assignments__classassignment__class_assigned=class_obj)
+                Q(room_assignments__class_allocations__class_assigned=class_obj)
             ).distinct()
     
     if selected_date_str:
@@ -242,43 +272,52 @@ def exam_timetable_grid(request):
         except ValueError:
             messages.error(request, "Invalid date format")
 
-    # ADD ROOM FILTER LOGIC
     if selected_room:
         exam_schedules = exam_schedules.filter(room_assignments__room__code=selected_room).distinct()
     
-    # 5. BUILD GRID DATA STRUCTURE
+    # Build grid data structure
     grid_data = defaultdict(lambda: defaultdict(list))
     
     for exam in exam_schedules:
         exam_date_str = exam.date.strftime('%Y-%m-%d')
         
-        # Only include if date is in our exam dates
         if exam_date_str in date_strings:
             time_slot = exam.time_slot
             
-            # Get room info
+            # Get only the rooms where current user is proctoring (for proctoring view)
             rooms = []
             for room_assignment in exam.room_assignments.all():
-                rooms.append({
-                    'room_code': room_assignment.room.code,
-                    'room_type': getattr(room_assignment.room.room_type, 'name', 'N/A'),
-                    'capacity': getattr(room_assignment.room, 'capacity', 0)
-                })
+                if view_type == 'proctoring':
+                    # Only include if current user is a proctor for this room
+                    if room_assignment.proctors.filter(user=user).exists():
+                        rooms.append({
+                            'room_code': room_assignment.room.code,
+                            'room_type': getattr(room_assignment.room.room_type, 'name', 'N/A'),
+                            'capacity': getattr(room_assignment.room, 'capacity', 0)
+                        })
+                else:
+                    # For teaching view, show all rooms
+                    rooms.append({
+                        'room_code': room_assignment.room.code,
+                        'room_type': getattr(room_assignment.room.room_type, 'name', 'N/A'),
+                        'capacity': getattr(room_assignment.room, 'capacity', 0)
+                    })
             
             if not rooms:
                 rooms = [{'room_code': 'TBA', 'room_type': 'N/A', 'capacity': 0}]
             
-            # Add to grid
             grid_data[exam_date_str][time_slot.id].append({
                 'course_code': exam.course.code,
                 'course_title': exam.course.title,
                 'date': exam.date,
                 'time_display': f"{time_slot.start_time.strftime('%H:%M')}-{time_slot.end_time.strftime('%H:%M')}",
                 'duration': getattr(time_slot, 'duration', 'N/A'),
-                'rooms': rooms
+                'rooms': rooms,
+                # Don't include invigilators list for proctoring view since it's just the current user
+                'is_proctoring': view_type == 'proctoring'
             })
     
-    # 6. DETERMINE BASE TEMPLATE
+    # Determine base template
     if user.is_authenticated:
         if user.is_student:
             base_template = 'portal/base.html'
@@ -286,10 +325,7 @@ def exam_timetable_grid(request):
             base_template = 'portal/base.html'
         else:
             base_template = 'home/base.html'
-    else:
-        base_template = 'home/home.html'
     
-    # 7. PREPARE CONTEXT - ADD all_rooms and selected_room
     context = {
         'days': day_names,
         'dates': date_strings,
@@ -297,17 +333,20 @@ def exam_timetable_grid(request):
         'grid_data': dict(grid_data),
         'all_classes': all_classes,
         'all_courses': all_courses,
-        'all_rooms': all_rooms,  # Add this line
+        'all_rooms': all_rooms,
         'exam_dates': exam_dates,
         'selected_class': selected_class,
         'selected_date': selected_date_str,
         'selected_course': selected_course,
-        'selected_room': selected_room,  # Add this line
+        'selected_room': selected_room,
+        'view_type': view_type,
         'base_template': base_template,
         'user_type': 'student' if user.is_student else 'lecturer' if user.is_lecturer else 'admin'
     }
     
     return render(request, 'portal/exam_timetable_grid.html', context)
+
+
 
 @login_required
 def student_exam_schedule_list(request):
@@ -319,7 +358,7 @@ def student_exam_schedule_list(request):
     
     if not (user.is_student and hasattr(user, 'student_profile')):
         messages.error(request, "This view is only available to students")
-        return redirect('portal:home')
+        return redirect('portal:portal_home')
     
     # Get student's profile information
     student_profile = user.student_profile

@@ -12,21 +12,9 @@
                         {% if user_type == 'student' %}
                             📝 My Exam Schedule
                         {% elif user_type == 'lecturer' %}
-                            📝 My Exam Invigilation Schedule
+                            📝 My Exam Schedule - {% if view_type == 'proctoring' %}Invigilation{% else %}Teaching{% endif %}
                         {% elif selected_class and selected_date and selected_room %}
                             📝 Exam Schedule - Class {{ selected_class }} in Room {{ selected_room }} on {{ selected_date }}
-                        {% elif selected_class and selected_room %}
-                            📝 Exam Schedule - Class {{ selected_class }} in Room {{ selected_room }}
-                        {% elif selected_date and selected_room %}
-                            📝 Exam Schedule - Room {{ selected_room }} on {{ selected_date }}
-                        {% elif selected_class and selected_date %}
-                            📝 Exam Schedule - Class {{ selected_class }} on {{ selected_date }}
-                        {% elif selected_class %}
-                            📝 Exam Schedule - Class {{ selected_class }}
-                        {% elif selected_date %}
-                            📝 Exam Schedule - Date {{ selected_date }}
-                        {% elif selected_room %}
-                            📝 Exam Schedule - Room {{ selected_room }}
                         {% else %}
                             📝 Complete Exam Schedule
                         {% endif %}
@@ -110,6 +98,42 @@
                                     </div>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Lecturer Tabs -->
+                    {% if user_type == 'lecturer' %}
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <ul class="nav nav-tabs" id="lecturerExamTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link {% if view_type != 'proctoring' %}active{% endif %}" 
+                                       href="?{% if selected_class %}class_filter={{ selected_class }}&{% endif %}{% if selected_date %}date_filter={{ selected_date }}&{% endif %}{% if selected_room %}room_filter={{ selected_room }}&{% endif %}view_type=teaching"
+                                       role="tab">
+                                        <i class="fas fa-chalkboard-teacher me-1"></i> Exams I Teach
+                                    </a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link {% if view_type == 'proctoring' %}active{% endif %}" 
+                                       href="?{% if selected_class %}class_filter={{ selected_class }}&{% endif %}{% if selected_date %}date_filter={{ selected_date }}&{% endif %}{% if selected_room %}room_filter={{ selected_room }}&{% endif %}view_type=proctoring"
+                                       role="tab">
+                                        <i class="fas fa-user-shield me-1"></i> Exams I Proctor
+                                    </a>
+                                </li>
+                            </ul>
+                            
+                            <div class="alert {% if view_type == 'proctoring' %}alert-info{% else %}alert-warning{% endif %} mb-3">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>
+                                    {% if view_type == 'proctoring' %}
+                                        Invigilation View:
+                                    {% else %}
+                                        Teaching View:
+                                    {% endif %}
+                                </strong> 
+                                You are viewing exams you've been assigned to {% if view_type == 'proctoring' %}proctor{% else %}teach{% endif %}.
+                            </div>
                         </div>
                     </div>
                     {% endif %}
@@ -200,22 +224,13 @@
                     </div>
                     {% endif %}
 
-                    <!-- Role-specific info for students and lecturers -->
+                    <!-- Role-specific info for students -->
                     {% if user_type == 'student' %}
                     <div class="row mb-3">
                         <div class="col-12">
                             <div class="alert alert-warning">
                                 <i class="fas fa-info-circle"></i>
                                 <strong>Student View:</strong> You are viewing your exam schedule. Only exams for your enrolled courses are shown.
-                            </div>
-                        </div>
-                    </div>
-                    {% elif user_type == 'lecturer' %}
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Lecturer View:</strong> You are viewing your exam invigilation schedule. Only exams for courses you teach are shown.
                             </div>
                         </div>
                     </div>
@@ -302,6 +317,12 @@
                                                         </div>
                                                     {% endif %}
                                                 </div>
+                                                {% if exam.invigilators and user_type == 'lecturer' and view_type == 'proctoring' %}
+                                                <div class="invigilators small mt-1">
+                                                    <i class="fas fa-user-shield text-success"></i>
+                                                    <span class="text-success">Invigilators: {{ exam.invigilators|join:", " }}</span>
+                                                </div>
+                                                {% endif %}
                                             </div>
                                             {% endfor %}
                                         {% else %}
@@ -459,6 +480,15 @@
     border: 1px dashed #ffcc80;
 }
 
+.nav-tabs .nav-link {
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: 600;
+    border-bottom: 3px solid #0d6efd;
+}
+
 @media (max-width: 768px) {
     .exam-timetable-grid {
         font-size: 0.75rem;
@@ -470,6 +500,11 @@
 
     .course-title, .exam-date, .exam-duration {
         font-size: 0.7rem;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 0.5rem;
+        font-size: 0.8rem;
     }
 }
 </style>
@@ -509,6 +544,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.disabled = true;
             }
         });
+    }
+    
+    // Highlight active tab based on URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentViewType = urlParams.get('view_type') || 'teaching';
+    
+    if (currentViewType === 'proctoring') {
+        document.querySelector('.nav-tabs .nav-link[href*="view_type=proctoring"]').classList.add('active');
+        document.querySelector('.nav-tabs .nav-link[href*="view_type=teaching"]').classList.remove('active');
     }
 });
 </script>
