@@ -8,4 +8,8 @@ urlpatterns = [
     path('generate_exam_schedule/', views.generate_exam_schedule, name = 'generate_exam_schedule'),
     path('accept_schedule/', views.accept_schedule, name='accept_schedule'),
     path('accept_exam_schedule/', views.accept_exam_schedule, name='accept_exam_schedule'),
+    
+    path('edit_schedule/', views.edit_schedule, name='edit_schedule'),
+    path('edit_exam_schedule/', views.edit_exam_schedule, name='edit_exam_schedule'),
+    path('save_edited_exam_schedule/', views.save_edited_exam_schedule, name='save_edited_exam_schedule'),
 ]

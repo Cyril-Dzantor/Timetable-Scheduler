@@ -1,10 +1,11 @@
+import datetime
 from django.shortcuts import render, HttpResponse, redirect
 from .algorithm import  exam_schedule,generate_complete_schedule 
 from Timetable.models import (
     Class, Room, Course, Lecturer, TimeSlot,
     ExamDate, CourseRegistration, ClassStudent
 )
-from Scheduler.models import LectureSchedule
+from Scheduler.models import ExamSchedule, LectureSchedule, StudentExamAllocation
 from collections import defaultdict 
 import json
 from django.contrib import messages
@@ -315,6 +316,9 @@ def generate_exam_schedule(request):
 def generate_schedule(request):
     return render(request, 'scheduler/generate_schedule.html')
 
+def edit_schedule(request):
+    return render(request, 'scheduler/edit_schedule.html')
+
 def accept_schedule(request):
     """Accept and save the previewed schedule to database"""
     if 'preview_schedule' not in request.session:
@@ -517,4 +521,157 @@ def accept_exam_schedule(request):
     except Exception as e:
         messages.error(request, f"Error saving exam schedule: {str(e)}")
         return redirect('generate_exam_schedule')
+    
 
+def edit_exam_schedule(request):
+    """Load exam schedule for editing"""
+    if not request.user.is_staff:
+        messages.error(request, "Only administrators can edit schedules.")
+        return redirect('home')
+    
+    try:
+        # Get all exam schedules with correct relationship names
+        exam_schedules = ExamSchedule.objects.all().select_related(
+            'course', 'time_slot'
+        ).prefetch_related(
+            'room_assignments__room',
+            'room_assignments__proctors',
+            'room_assignments__class_allocations__class_assigned'
+        )
+        
+        # Get all distinct exam dates
+        exam_dates = ExamSchedule.objects.dates('date', 'day').distinct().order_by('date')
+        date_strings = [date.strftime('%Y-%m-%d') for date in exam_dates]
+        
+        # Get all time slots marked as exam slots
+        exam_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
+        
+        # Build grid data structure like the regular timetable
+        grid_data = defaultdict(lambda: defaultdict(list))
+        
+        for exam in exam_schedules:
+            exam_date_str = exam.date.strftime('%Y-%m-%d')
+            
+            if exam_date_str in date_strings:
+                time_slot = exam.time_slot
+                
+                # Get all rooms for this exam
+                rooms = []
+                for room_assignment in exam.room_assignments.all():
+                    # Get class allocation
+                    class_allocation = room_assignment.class_allocations.first()
+                    
+                    rooms.append({
+                        'room_code': room_assignment.room.code,
+                        'room_type': getattr(room_assignment.room.room_type, 'name', 'N/A'),
+                        'capacity': getattr(room_assignment.room, 'capacity', 0),
+                        'class_code': class_allocation.class_assigned.code if class_allocation else '',
+                        'proctors': list(room_assignment.proctors.values_list('name', flat=True))
+                    })
+                
+                if not rooms:
+                    rooms = [{'room_code': 'TBA', 'room_type': 'N/A', 'capacity': 0, 'class_code': '', 'proctors': []}]
+                
+                grid_data[exam_date_str][time_slot.id].append({
+                    'id': exam.id,
+                    'course_code': exam.course.code,
+                    'course_title': exam.course.title,
+                    'date': exam.date,
+                    'time_display': f"{time_slot.start_time.strftime('%H:%M')}-{time_slot.end_time.strftime('%H:%M')}",
+                    'duration': f"{(time_slot.end_time.hour - time_slot.start_time.hour) + (time_slot.end_time.minute - time_slot.start_time.minute)/60:.1f} hours",
+                    'rooms': rooms
+                })
+        
+        # Convert to format for the edit grid
+        schedule_data = []
+        for exam in exam_schedules:
+            # Get room assignments
+            rooms_data = []
+            for room_assignment in exam.room_assignments.all():
+                # Get class allocation
+                class_allocation = room_assignment.class_allocations.first() if room_assignment.class_allocations.exists() else None
+                
+                room_data = {
+                    'room': room_assignment.room.code,
+                    'class': class_allocation.class_assigned.code if class_allocation else '',
+                    'student_ids': list(StudentExamAllocation.objects.filter(
+                        exam=exam, room=room_assignment.room
+                    ).values_list('student_index', flat=True)),
+                    'proctors': list(room_assignment.proctors.values_list('name', flat=True))
+                }
+                rooms_data.append(room_data)
+            
+            schedule_item = {
+                'id': exam.id,
+                'course': exam.course.code,
+                'course_title': exam.course.title,
+                'day': exam.date.strftime('%Y-%m-%d'),
+                'slot': f"{exam.time_slot.start_time.strftime('%H:%M')} - {exam.time_slot.end_time.strftime('%H:%M')}",
+                'rooms': rooms_data,
+                'duration': f"{(exam.time_slot.end_time.hour - exam.time_slot.start_time.hour) + (exam.time_slot.end_time.minute - exam.time_slot.start_time.minute)/60:.1f} hours"
+            }
+            schedule_data.append(schedule_item)
+        
+        # Store in session for editing
+        request.session['editable_exam_schedule'] = schedule_data
+        
+        # Convert grid_data to a format that's easier to use in templates
+        simplified_grid_data = {}
+        for date_str, time_slots in grid_data.items():
+            simplified_grid_data[date_str] = {}
+            for time_slot_id, exams in time_slots.items():
+                simplified_grid_data[date_str][str(time_slot_id)] = exams
+        
+        context = {
+            'schedule_data': schedule_data,
+            'time_slots': exam_time_slots,
+            'exam_dates': exam_dates,
+            'all_classes': Class.objects.all(),
+            'all_rooms': Room.objects.all(),
+            'grid_data': simplified_grid_data,  # Use simplified format
+            'user_type': 'admin'
+        }
+        
+        return render(request, 'scheduler/edit_exam_schedule.html', context)
+        
+    except Exception as e:
+        print(f"Error in edit_exam_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        messages.error(request, f"Error loading schedule for editing: {str(e)}")
+        return redirect('generate_exam_schedule')
+
+def save_edited_exam_schedule(request):
+    """Save the edited exam schedule"""
+    if not request.user.is_staff:
+        messages.error(request, "Only administrators can save schedules.")
+        return redirect('home')
+    
+    if request.method == 'POST':
+        try:
+            schedule_data = json.loads(request.POST.get('schedule_data', '[]'))
+            
+            # Update each exam in the database
+            for exam_item in schedule_data:
+                exam = ExamSchedule.objects.get(id=exam_item['id'])
+                
+                # Update date if changed
+                new_date = datetime.strptime(exam_item['date'], '%Y-%m-%d').date()
+                if exam.date != new_date:
+                    exam.date = new_date
+                
+                # Update time slot if changed
+                time_slot = TimeSlot.objects.get(id=exam_item['time_slot'])
+                if exam.time_slot != time_slot:
+                    exam.time_slot = time_slot
+                
+                exam.save()
+            
+            messages.success(request, "Exam schedule updated successfully!")
+            return redirect('portal:exam_timetable_grid')
+            
+        except Exception as e:
+            messages.error(request, f"Error saving schedule: {str(e)}")
+            return redirect('edit_exam_schedule')
+    
+    return redirect('edit_exam_schedule')

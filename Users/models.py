@@ -38,6 +38,7 @@ class StudentProfile(models.Model):
     program = models.CharField(max_length=100)
     class_code = models.CharField(max_length=20)
     secondary_email = models.EmailField(blank=True, null=True)
+    college = models.ForeignKey('Timetable.College', on_delete = models.CASCADE, related_name="student_profile", blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.index_number})"
@@ -47,6 +48,7 @@ class LecturerProfile(models.Model):
     staff_id = models.CharField(max_length=20, unique=True, db_index=True)
     department = models.CharField(max_length=100)
     secondary_email = models.EmailField(blank=True, null=True)
+    college = models.ForeignKey('Timetable.College', on_delete = models.CASCADE, related_name="lecturer_profile", blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.staff_id})"
@@ -57,6 +59,7 @@ class AdminProfile(models.Model):
     department = models.CharField(max_length=100, blank=True, null=True)  
     staff_id = models.CharField(max_length=20, unique=True, db_index=True)
     secondary_email = models.EmailField(blank=True, null=True)
+    college = models.ForeignKey('Timetable.College', on_delete = models.CASCADE, related_name="admin_profile", blank=True, null=True)
     
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.staff_id})"

@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404 
 from django.contrib.auth import login, logout
-from django.contrib.auth.decorators import login_required,user_passes_test 
+from django.contrib.auth.decorators import login_required,user_passes_test
+from django.core.exceptions import PermissionDenied 
 from django.contrib import messages
 from .forms import CustomLoginForm, CustomRegisterForm,ComplaintForm 
 from django.utils import timezone
@@ -53,6 +54,11 @@ def register_view(request):
 @user_passes_test(lambda u: u.is_admin)
 def respond_complaint(request, complaint_id):
     complaint = get_object_or_404(Complaint, id=complaint_id)
+    
+    # Verify admin is from the same college as the complaint
+    if request.user.admin_profile.college != complaint.user.college:
+        raise PermissionDenied("You can only respond to complaints from your college")
+    
     if request.method == 'POST':
         complaint.response = request.POST.get('response')
         complaint.status = request.POST.get('status')
@@ -68,6 +74,13 @@ def file_complaint(request):
         if form.is_valid():
             complaint = form.save(commit=False)
             complaint.user = request.user
+            
+            # Set college based on user type
+            if hasattr(request.user, 'student_profile'):
+                complaint.college = request.user.student_profile.college
+            elif hasattr(request.user, 'lecturer_profile'):
+                complaint.college = request.user.lecturer_profile.college
+            
             complaint.save()
             return redirect('complaint_detail', complaint_id=complaint.id)
     else:
@@ -78,43 +91,45 @@ def file_complaint(request):
 def complaint_detail(request, complaint_id):
     complaint = get_object_or_404(Complaint, id=complaint_id)
 
+    # Verify college access
+    if hasattr(request.user, 'admin_profile'):
+        if request.user.admin_profile.college != complaint.college:
+            raise PermissionDenied("You can only access complaints from your college")
+    elif complaint.user != request.user:
+        raise PermissionDenied("You can only view your own complaints")
+    
     if request.user.is_staff or getattr(request.user, 'is_admin', False):
         base_template = 'home/base.html'
     else:
         base_template = 'portal/base.html'
     
-    # Check permissions
-    if not (request.user.is_admin or complaint.user == request.user):
-        raise PermissionDenied
-    
     if request.method == 'POST':
         new_response = request.POST.get('response')
         if new_response:
-            # Format the response with sender info
+            # Verify admin is from same college before allowing response
+            if request.user.is_admin and request.user.admin_profile.college != complaint.college:
+                raise PermissionDenied("You can only respond to complaints from your college")
+            
             sender_name = "Admin" if request.user.is_admin else request.user.get_full_name() or request.user.email
             timestamp = timezone.now().strftime('%Y-%m-%d %H:%M')
             formatted_response = f"{sender_name} ({timestamp}):\n{new_response}"
             
-            # Append to existing responses
             if complaint.response:
                 complaint.response = f"{complaint.response}\n\n---\n\n{formatted_response}"
             else:
                 complaint.response = formatted_response
             
-            # Update status if admin is responding
             if request.user.is_admin:
                 complaint.status = request.POST.get('status', complaint.status)
             complaint.responded_at = timezone.now()
             complaint.save()
             return redirect('complaint_detail', complaint_id=complaint.id)
-        
     
     return render(request, 'users/complaint_detail.html', {
         'complaint': complaint,
         'is_admin': request.user.is_admin,
         'base_template': base_template
     })
-
 @login_required
 def complaint_list(request):
     complaints = Complaint.objects.filter(user=request.user).order_by('-submitted_at')
@@ -122,5 +137,8 @@ def complaint_list(request):
 
 @user_passes_test(lambda u: u.is_admin)
 def admin_complaints(request):
-    complaints = Complaint.objects.all().order_by('-submitted_at')
+    # Only show complaints from the admin's college
+    complaints = Complaint.objects.filter(
+        college=request.user.admin_profile.college
+    ).order_by('-submitted_at')
     return render(request, 'users/admin_complaints.html', {'complaints': complaints})

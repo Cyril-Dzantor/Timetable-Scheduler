@@ -1,0 +1,412 @@
+{% extends 'home/base.html' %}
+{% load portal_extras %}
+{% load static %}
+{% block title %}Edit Exam Schedule{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">📝 Edit Exam Schedule</h4>
+                    <div class="d-flex gap-2">
+                        <button id="save-changes" class="btn btn-sm btn-success">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                        <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Editing Mode:</strong> Drag and drop exams to reschedule them. 
+                        Constraints will be validated automatically.
+                    </div>
+
+                    <!-- Constraint Status -->
+                    <div id="constraint-status" class="alert alert-success d-none">
+                        <i class="fas fa-check-circle"></i>
+                        <span id="constraint-message">No constraint violations detected.</span>
+                    </div>
+
+                    <!-- Filter Controls -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form id="filter-form" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="class_filter" class="form-label">Filter by Class:</label>
+                                    <select name="class_filter" id="class_filter" class="form-select">
+                                        <option value="">All Classes</option>
+                                        {% for class in all_classes %}
+                                        <option value="{{ class.code }}">{{ class.code }} - {{ class.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="date_filter" class="form-label">Filter by Date:</label>
+                                    <select name="date_filter" id="date_filter" class="form-select">
+                                        <option value="">All Dates</option>
+                                        {% for date in exam_dates %}
+                                        <option value="{{ date|date:'Y-m-d' }}">{{ date|date:'l, F j, Y' }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="room_filter" class="form-label">Filter by Room:</label>
+                                    <select name="room_filter" id="room_filter" class="form-select">
+                                        <option value="">All Rooms</option>
+                                        {% for room in all_rooms %}
+                                        <option value="{{ room.code }}">{{ room.code }} ({{ room.room_type }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button type="button" id="reset-filters" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Reset Filters
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Editable Grid -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm exam-timetable-grid editable-grid">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th class="time-header" style="width: 120px; min-width: 120px;">Time</th>
+                                    {% for date in exam_dates %}
+                                    <th class="day-header text-center" style="min-width: 200px;">
+                                        {{ date|date:"l" }}<br>
+                                        {{ date|date:"M j, Y" }}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for time_slot in time_slots %}
+                                <tr data-time-slot="{{ time_slot.id }}">
+                                    <td class="time-cell text-center font-weight-bold" style="background-color: #fff3e0;">
+                                        {{ time_slot.start_time|time:"H:i" }} - {{ time_slot.end_time|time:"H:i" }}
+                                    </td>
+                                    {% for date in exam_dates %}
+                                    {% with date_str=date|date:'Y-m-d' %}
+                                    <td class="exam-schedule-cell droppable-slot" 
+                                        data-date="{{ date_str }}"
+                                        data-time-slot="{{ time_slot.id }}"
+                                        style="height: 100px; vertical-align: top;">
+                                        {% if grid_data|get_item:date_str|get_item:time_slot.id %}
+                                            {% for exam in grid_data|get_item:date_str|get_item:time_slot.id %}
+                                            <div class="exam-item p-2 mb-1 draggable-exam" 
+                                                data-exam-id="{{ exam.id }}"
+                                                data-course="{{ exam.course_code }}"
+                                                data-date="{{ date_str }}"
+                                                data-time-slot="{{ time_slot.id }}"
+                                                style="background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px; cursor: move;">
+                                                <div class="course-code font-weight-bold text-warning">📝 {{ exam.course_code }}</div>
+                                                <div class="course-title small text-muted">{{ exam.course_title|truncatechars:30 }}</div>
+                                                <div class="exam-date small text-danger">
+                                                    <i class="fas fa-calendar-check"></i> {{ date_str }}
+                                                </div>
+                                                <div class="exam-duration small text-info">
+                                                    <i class="fas fa-clock"></i> {{ exam.duration }}
+                                                </div>
+                                                <div class="exam-rooms small">
+                                                    <i class="fas fa-map-marker-alt text-primary"></i>
+                                                    {% if exam.rooms|length == 1 %}
+                                                        <span class="text-primary">{{ exam.rooms.0.room_code }}</span>
+                                                    {% else %}
+                                                        <span class="text-primary">{{ exam.rooms|length }} Rooms</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="empty-slot text-center text-muted" style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                                                <small>-</small>
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    {% endwith %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form for saving changes -->
+<form id="save-form" method="post" action="{% url 'save_edited_exam_schedule' %}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="schedule_data" id="schedule-data-input">
+</form>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<style>
+.draggable-exam {
+    cursor: move !important;
+}
+
+.droppable-slot {
+    min-height: 100px;
+}
+
+.droppable-slot.ui-droppable-hover {
+    background-color: #e8f5e9 !important;
+    border: 2px dashed #4caf50 !important;
+}
+
+.draggable-exam.ui-draggable-dragging {
+    opacity: 0.8;
+    transform: scale(1.05);
+    z-index: 1000;
+}
+
+.constraint-violation {
+    border: 2px solid #f44336 !important;
+    background-color: #ffebee !important;
+}
+
+#constraint-status.danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+#constraint-status.success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+#constraint-status.warning {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+}
+
+.empty-slot {
+    background-color: #fff3e0;
+    border: 1px dashed #ffcc80;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+<script>
+// Add this custom template filter if not already available
+function get_item(dictionary, key) {
+    return dictionary[key];
+}
+
+$(document).ready(function() {
+    // Make exams draggable
+    $(".draggable-exam").draggable({
+        revert: "invalid",
+        containment: "document",
+        cursor: "move",
+        zIndex: 100,
+        start: function(event, ui) {
+            $(this).css('z-index', 1000);
+        }
+    });
+
+    // Make slots droppable
+    $(".droppable-slot").droppable({
+        accept: ".draggable-exam",
+        hoverClass: "ui-droppable-hover",
+        drop: function(event, ui) {
+            const draggedExam = ui.draggable;
+            const targetSlot = $(this);
+            
+            // Remove any previous constraint warnings
+            $('.constraint-violation').removeClass('constraint-violation');
+            
+            // Check constraints before allowing drop
+            if (checkConstraints(draggedExam, targetSlot)) {
+                // Move the exam to the new slot
+                targetSlot.append(draggedExam);
+                draggedExam.css({
+                    top: 'auto',
+                    left: 'auto',
+                    position: 'relative'
+                });
+                
+                // Update exam data attributes
+                const newDate = targetSlot.data('date');
+                const newTimeSlot = targetSlot.data('time-slot');
+                
+                draggedExam.attr('data-date', newDate);
+                draggedExam.attr('data-time-slot', newTimeSlot);
+                
+                // Update constraint status
+                updateConstraintStatus("Exam moved successfully. No constraint violations detected.", "success");
+            } else {
+                // Revert to original position if constraints are violated
+                draggedExam.draggable("option", "revert", true);
+                updateConstraintStatus("Constraint violation! Cannot move exam to this slot.", "danger");
+            }
+        }
+    });
+
+    // Filter functionality
+    $("#class_filter, #date_filter, #room_filter").change(function() {
+        filterGrid();
+    });
+
+    $("#reset-filters").click(function() {
+        $("#class_filter, #date_filter, #room_filter").val("");
+        filterGrid();
+    });
+
+    // Save changes
+    $("#save-changes").click(function() {
+        if (validateAllConstraints()) {
+            const scheduleData = collectScheduleData();
+            $("#schedule-data-input").val(JSON.stringify(scheduleData));
+            $("#save-form").submit();
+        } else {
+            alert("Cannot save changes. There are constraint violations in the schedule.");
+        }
+    });
+
+    function filterGrid() {
+        const classFilter = $("#class_filter").val();
+        const dateFilter = $("#date_filter").val();
+        const roomFilter = $("#room_filter").val();
+
+        $(".draggable-exam").each(function() {
+            const examClass = $(this).data('course');
+            const examDate = $(this).data('date');
+            const examRooms = $(this).find('.exam-rooms').text();
+            
+            let show = true;
+            
+            if (classFilter && !examClass.includes(classFilter)) {
+                show = false;
+            }
+            
+            if (dateFilter && examDate !== dateFilter) {
+                show = false;
+            }
+            
+            if (roomFilter && !examRooms.includes(roomFilter)) {
+                show = false;
+            }
+            
+            $(this).toggle(show);
+            $(this).closest('.droppable-slot').toggle(show || $(this).closest('.droppable-slot').find('.draggable-exam:visible').length > 0);
+        });
+    }
+
+    function checkConstraints(exam, targetSlot) {
+        // Implement constraint checking logic here
+        const examId = exam.data('exam-id');
+        const courseCode = exam.data('course');
+        const newDate = targetSlot.data('date');
+        const newTimeSlot = targetSlot.data('time-slot');
+        
+        // Check for room conflicts
+        const examRooms = exam.find('.exam-rooms').text();
+        const targetSlotExams = targetSlot.find('.draggable-exam');
+        
+        let hasConflict = false;
+        targetSlotExams.each(function() {
+            const otherExamRooms = $(this).find('.exam-rooms').text();
+            // Simple room conflict check - in real implementation, you'd check specific rooms
+            if (otherExamRooms === examRooms) {
+                hasConflict = true;
+                $(this).addClass('constraint-violation');
+                exam.addClass('constraint-violation');
+                return false; // Break loop
+            }
+        });
+        
+        if (hasConflict) {
+            return false;
+        }
+        
+        // Add more constraint checks as needed:
+        // - Lecturer availability
+        // - Class availability
+        // - Room capacity
+        // - Time between exams for same class
+        
+        return true; // All constraints satisfied
+    }
+
+    function validateAllConstraints() {
+        // Validate all exams against constraints
+        let allValid = true;
+        
+        $(".droppable-slot").each(function() {
+            const exams = $(this).find('.draggable-exam');
+            if (exams.length > 1) {
+                // Check for conflicts between exams in the same slot
+                exams.each(function(i) {
+                    for (let j = i + 1; j < exams.length; j++) {
+                        const exam1 = $(exams[i]);
+                        const exam2 = $(exams[j]);
+                        
+                        // Check for room conflicts
+                        const exam1Rooms = exam1.find('.exam-rooms').text();
+                        const exam2Rooms = exam2.find('.exam-rooms').text();
+                        
+                        if (exam1Rooms === exam2Rooms) {
+                            allValid = false;
+                            exam1.addClass('constraint-violation');
+                            exam2.addClass('constraint-violation');
+                        }
+                    }
+                });
+            }
+        });
+        
+        return allValid;
+    }
+
+    function collectScheduleData() {
+        const scheduleData = [];
+        
+        $(".draggable-exam").each(function() {
+            const exam = $(this);
+            const slotCell = exam.closest('.droppable-slot');
+            
+            scheduleData.push({
+                id: exam.data('exam-id'),
+                course: exam.data('course'),
+                date: slotCell.data('date'),
+                time_slot: slotCell.data('time-slot'),
+                // Add other necessary data
+            });
+        });
+        
+        return scheduleData;
+    }
+
+    function updateConstraintStatus(message, status) {
+        const statusElement = $("#constraint-status");
+        statusElement.removeClass("d-none success danger warning").addClass(status);
+        $("#constraint-message").text(message);
+        statusElement.fadeIn();
+        
+        // Auto-hide after 5 seconds
+        setTimeout(function() {
+            statusElement.fadeOut();
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

@@ -495,6 +495,9 @@ def check_schedule_conflicts(schedule):
     return conflicts
 
 
+
+
+
 @login_required
 def timetable_view(request):
     timetable, _ = PersonalTimetable.objects.get_or_create(user=request.user)
@@ -510,32 +513,50 @@ def timetable_view(request):
     exam_events = []
     
     if timetable.show_institutional_classes:
-        if hasattr(request.user, 'timetable_lecturer'):
-            institutional_events = LectureSchedule.objects.filter(
-                lecturer=request.user.timetable_lecturer
-            ).select_related('course', 'room', 'time_slot')
-        else:
-            try:
-                student_classes = request.user.student_classes.all()
+        # For students
+        if request.user.is_student and hasattr(request.user, 'student_profile'):
+            student_profile = request.user.student_profile
+            registered_courses = student_profile.registered_courses.all()
+            student_class = student_profile.class_code
+            
+            if registered_courses.exists():
                 institutional_events = LectureSchedule.objects.filter(
-                    assigned_class__in=student_classes
-                ).select_related('course', 'room', 'time_slot')
-            except AttributeError:
-                pass
+                    course__in=registered_courses,
+                    assigned_class__code=student_class
+                ).select_related('course', 'room', 'time_slot', 'assigned_class', 'lecturer')
+            else:
+                messages.warning(request, "You haven't registered for any courses yet.")
+        
+        # For lecturers
+        elif request.user.is_lecturer and hasattr(request.user, 'timetable_lecturer'):
+            lecturer = request.user.timetable_lecturer
+            if lecturer:
+                institutional_events = LectureSchedule.objects.filter(
+                    lecturer=lecturer
+                ).select_related('course', 'room', 'time_slot', 'assigned_class', 'lecturer')
+            else:
+                messages.error(request, "Lecturer record not found")
     
     if timetable.show_exams:
-        if hasattr(request.user, 'timetable_lecturer'):
-            exam_events = ExamSchedule.objects.filter(
-                course__lecturers=request.user.timetable_lecturer
-            ).select_related('course', 'time_slot')
-        else:
-            try:
-                student_classes = request.user.student_classes.all()
+        # For students
+        if request.user.is_student and hasattr(request.user, 'student_profile'):
+            student_profile = request.user.student_profile
+            registered_courses = student_profile.registered_courses.all()
+            student_class = student_profile.class_code
+            
+            if registered_courses.exists():
                 exam_events = ExamSchedule.objects.filter(
-                    course__classes__in=student_classes
+                    course__in=registered_courses,
+                    course__classes__code=student_class
                 ).select_related('course', 'time_slot')
-            except AttributeError:
-                pass
+        
+        # For lecturers
+        elif request.user.is_lecturer and hasattr(request.user, 'timetable_lecturer'):
+            lecturer = request.user.timetable_lecturer
+            if lecturer:
+                exam_events = ExamSchedule.objects.filter(
+                    course__lecturers=lecturer
+                ).select_related('course', 'time_slot')
     
     context = {
         'timetable': timetable,
@@ -543,12 +564,12 @@ def timetable_view(request):
         'institutional_events': institutional_events,
         'exam_events': exam_events,
         'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-        'time_slots': TimeSlot.objects.all().order_by('start_time'),
+        'time_slots': TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time'),
         'current_view': view,
         'today': timezone.now().strftime('%A'),
     }
     return render(request, 'portal/timetable.html', context)
-
+    
 
 
 @login_required
@@ -659,3 +680,6 @@ def day_view(request, date_string=None):
         'next_day': next_day,
     }
     return render(request, 'portal/day_view.html', context)
+
+
+    
