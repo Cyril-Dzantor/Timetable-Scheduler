@@ -1,5 +1,6 @@
 import datetime
-from django.shortcuts import render, HttpResponse, redirect
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render, HttpResponse, redirect
 from .algorithm import  exam_schedule,generate_complete_schedule 
 from Timetable.models import (
     Class, Room, Course, Lecturer, TimeSlot,
@@ -9,6 +10,10 @@ from Scheduler.models import ExamSchedule, LectureSchedule, StudentExamAllocatio
 from collections import defaultdict 
 import json
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import Q, Count
+
 
 def generate(request):
     try:
@@ -323,14 +328,14 @@ def accept_schedule(request):
     """Accept and save the previewed schedule to database"""
     if 'preview_schedule' not in request.session:
         messages.warning(request, "No schedule to accept. Please generate a schedule first.")
-        return redirect('generate')
+        return redirect('scheduler:generate')
     
     schedule_to_save = request.session['preview_schedule']
     schedule_issues = request.session.get('schedule_issues', [])
 
     if not schedule_to_save:
         messages.warning(request, "No schedule to accept. Please generate a schedule first.")
-        return redirect('generate')
+        return redirect('scheduler:generate')
 
     try:
         # Clear existing schedules first
@@ -386,17 +391,17 @@ def accept_schedule(request):
         del request.session['preview_schedule']
         del request.session['schedule_issues']
         
-        return redirect('generate')
+        return redirect('scheduler:generate')
         
     except Exception as e:
         messages.error(request, f"Error saving schedule: {str(e)}")
-        return redirect('generate')
+        return redirect('scheduler:generate')
 
 def accept_exam_schedule(request):
     """Accept and save the previewed exam schedule to database"""
     if 'preview_exam_schedule' not in request.session:
         messages.warning(request, "No exam schedule to accept. Please generate an exam schedule first.")
-        return redirect('generate_exam_schedule')
+        return redirect('scheduler:generate_exam_schedule')
     
     exam_schedule_to_save = request.session['preview_exam_schedule']
     manual_assignments = request.session.get('exam_manual_assignments', [])
@@ -404,7 +409,7 @@ def accept_exam_schedule(request):
 
     if not exam_schedule_to_save:
         messages.warning(request, "No exam schedule to accept. Please generate an exam schedule first.")
-        return redirect('generate_exam_schedule')
+        return redirect('scheduler:generate_exam_schedule')
 
     try:
         # Clear existing exam schedules first
@@ -516,162 +521,625 @@ def accept_exam_schedule(request):
         del request.session['exam_manual_assignments']
         del request.session['exam_unused_columns']
         
-        return redirect('generate_exam_schedule')
+        return redirect('scheduler:generate_exam_schedule')
         
     except Exception as e:
         messages.error(request, f"Error saving exam schedule: {str(e)}")
-        return redirect('generate_exam_schedule')
+        return redirect('scheduler:generate_exam_schedule')
     
 
-def edit_exam_schedule(request):
-    """Load exam schedule for editing"""
-    if not request.user.is_staff:
-        messages.error(request, "Only administrators can edit schedules.")
-        return redirect('home')
+@login_required
+def edit_exam_schedule(request, exam_id):
+    """
+    Edit a specific exam schedule entry - Admin only
+    Enhanced with comprehensive conflict checking and guidance
+    """
+    if not request.user.is_admin and not request.user.is_superuser:
+        messages.error(request, "Only administrators can edit exam schedules.")
+        return redirect('portal:exam_timetable_grid')
     
-    try:
-        # Get all exam schedules with correct relationship names
-        exam_schedules = ExamSchedule.objects.all().select_related(
-            'course', 'time_slot'
-        ).prefetch_related(
-            'room_assignments__room',
-            'room_assignments__proctors',
-            'room_assignments__class_allocations__class_assigned'
-        )
-        
-        # Get all distinct exam dates
-        exam_dates = ExamSchedule.objects.dates('date', 'day').distinct().order_by('date')
-        date_strings = [date.strftime('%Y-%m-%d') for date in exam_dates]
-        
-        # Get all time slots marked as exam slots
-        exam_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
-        
-        # Build grid data structure like the regular timetable
-        grid_data = defaultdict(lambda: defaultdict(list))
-        
-        for exam in exam_schedules:
-            exam_date_str = exam.date.strftime('%Y-%m-%d')
-            
-            if exam_date_str in date_strings:
-                time_slot = exam.time_slot
-                
-                # Get all rooms for this exam
-                rooms = []
-                for room_assignment in exam.room_assignments.all():
-                    # Get class allocation
-                    class_allocation = room_assignment.class_allocations.first()
-                    
-                    rooms.append({
-                        'room_code': room_assignment.room.code,
-                        'room_type': getattr(room_assignment.room.room_type, 'name', 'N/A'),
-                        'capacity': getattr(room_assignment.room, 'capacity', 0),
-                        'class_code': class_allocation.class_assigned.code if class_allocation else '',
-                        'proctors': list(room_assignment.proctors.values_list('name', flat=True))
-                    })
-                
-                if not rooms:
-                    rooms = [{'room_code': 'TBA', 'room_type': 'N/A', 'capacity': 0, 'class_code': '', 'proctors': []}]
-                
-                grid_data[exam_date_str][time_slot.id].append({
-                    'id': exam.id,
-                    'course_code': exam.course.code,
-                    'course_title': exam.course.title,
-                    'date': exam.date,
-                    'time_display': f"{time_slot.start_time.strftime('%H:%M')}-{time_slot.end_time.strftime('%H:%M')}",
-                    'duration': f"{(time_slot.end_time.hour - time_slot.start_time.hour) + (time_slot.end_time.minute - time_slot.start_time.minute)/60:.1f} hours",
-                    'rooms': rooms
-                })
-        
-        # Convert to format for the edit grid
-        schedule_data = []
-        for exam in exam_schedules:
-            # Get room assignments
-            rooms_data = []
-            for room_assignment in exam.room_assignments.all():
-                # Get class allocation
-                class_allocation = room_assignment.class_allocations.first() if room_assignment.class_allocations.exists() else None
-                
-                room_data = {
-                    'room': room_assignment.room.code,
-                    'class': class_allocation.class_assigned.code if class_allocation else '',
-                    'student_ids': list(StudentExamAllocation.objects.filter(
-                        exam=exam, room=room_assignment.room
-                    ).values_list('student_index', flat=True)),
-                    'proctors': list(room_assignment.proctors.values_list('name', flat=True))
-                }
-                rooms_data.append(room_data)
-            
-            schedule_item = {
-                'id': exam.id,
-                'course': exam.course.code,
-                'course_title': exam.course.title,
-                'day': exam.date.strftime('%Y-%m-%d'),
-                'slot': f"{exam.time_slot.start_time.strftime('%H:%M')} - {exam.time_slot.end_time.strftime('%H:%M')}",
-                'rooms': rooms_data,
-                'duration': f"{(exam.time_slot.end_time.hour - exam.time_slot.start_time.hour) + (exam.time_slot.end_time.minute - exam.time_slot.start_time.minute)/60:.1f} hours"
-            }
-            schedule_data.append(schedule_item)
-        
-        # Store in session for editing
-        request.session['editable_exam_schedule'] = schedule_data
-        
-        # Convert grid_data to a format that's easier to use in templates
-        simplified_grid_data = {}
-        for date_str, time_slots in grid_data.items():
-            simplified_grid_data[date_str] = {}
-            for time_slot_id, exams in time_slots.items():
-                simplified_grid_data[date_str][str(time_slot_id)] = exams
-        
-        context = {
-            'schedule_data': schedule_data,
-            'time_slots': exam_time_slots,
-            'exam_dates': exam_dates,
-            'all_classes': Class.objects.all(),
-            'all_rooms': Room.objects.all(),
-            'grid_data': simplified_grid_data,  # Use simplified format
-            'user_type': 'admin'
-        }
-        
-        return render(request, 'scheduler/edit_exam_schedule.html', context)
-        
-    except Exception as e:
-        print(f"Error in edit_exam_schedule: {e}")
-        import traceback
-        traceback.print_exc()
-        messages.error(request, f"Error loading schedule for editing: {str(e)}")
-        return redirect('generate_exam_schedule')
-
-def save_edited_exam_schedule(request):
-    """Save the edited exam schedule"""
-    if not request.user.is_staff:
-        messages.error(request, "Only administrators can save schedules.")
-        return redirect('home')
+    exam_schedule = get_object_or_404(ExamSchedule, id=exam_id)
     
     if request.method == 'POST':
         try:
-            schedule_data = json.loads(request.POST.get('schedule_data', '[]'))
+            # Get form data
+            course_id = request.POST.get('course')
+            exam_date = request.POST.get('exam_date')
+            time_slot_id = request.POST.get('time_slot')
             
-            # Update each exam in the database
-            for exam_item in schedule_data:
-                exam = ExamSchedule.objects.get(id=exam_item['id'])
-                
-                # Update date if changed
-                new_date = datetime.strptime(exam_item['date'], '%Y-%m-%d').date()
-                if exam.date != new_date:
-                    exam.date = new_date
-                
-                # Update time slot if changed
-                time_slot = TimeSlot.objects.get(id=exam_item['time_slot'])
-                if exam.time_slot != time_slot:
-                    exam.time_slot = time_slot
-                
-                exam.save()
+            # Validate required fields
+            if not all([course_id, exam_date, time_slot_id]):
+                messages.error(request, "All fields are required.")
+                return redirect('scheduler:edit_exam_schedule', exam_id=exam_id)
             
-            messages.success(request, "Exam schedule updated successfully!")
+            # Get related objects
+            course = Course.objects.get(id=course_id)
+            time_slot = TimeSlot.objects.get(id=time_slot_id)
+            
+            # Parse the date
+            exam_date_obj = datetime.strptime(exam_date, '%Y-%m-%d').date()
+            
+            # Check for conflicts before updating
+            conflicts = ExamSchedule.objects.filter(
+                date=exam_date_obj,
+                time_slot=time_slot
+            ).exclude(id=exam_id)
+            
+            # Detailed conflict checking with specific information
+            conflict_details = []
+            
+            # Check course conflicts (same course at different time)
+            course_conflicts = conflicts.filter(course=course)
+            if course_conflicts.exists():
+                for conflict in course_conflicts:
+                    conflict_details.append({
+                        'type': 'course',
+                        'message': f"Course {course.code} is already scheduled",
+                        'details': f"Date: {conflict.date} | Time: {conflict.time_slot}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # Check room conflicts (same room at same time)
+            room_conflicts = []
+            for conflict in conflicts:
+                # Get all rooms used by this conflicting exam
+                conflict_rooms = conflict.room_assignments.all()
+                for conflict_room in conflict_rooms:
+                    room_conflicts.append({
+                        'type': 'room',
+                        'message': f"Room {conflict_room.room.code} is already booked",
+                        'details': f"Course: {conflict.course.code} | Date: {conflict.date} | Time: {conflict.time_slot}",
+                        'conflict_schedule': conflict,
+                        'conflict_room': conflict_room.room
+                    })
+            
+            # Check proctor conflicts (same proctor at same time)
+            proctor_conflicts = []
+            for conflict in conflicts:
+                conflict_rooms = conflict.room_assignments.all()
+                for conflict_room in conflict_rooms:
+                    for proctor in conflict_room.proctors.all():
+                        proctor_conflicts.append({
+                            'type': 'proctor',
+                            'message': f"Proctor {proctor.name} is already assigned",
+                            'details': f"Course: {conflict.course.code} | Room: {conflict_room.room.code} | Date: {conflict.date} | Time: {conflict.time_slot}",
+                            'conflict_schedule': conflict,
+                            'conflict_proctor': proctor
+                        })
+            
+            # Add all conflicts to the list
+            conflict_details.extend(room_conflicts)
+            conflict_details.extend(proctor_conflicts)
+            
+            # If there are conflicts, show detailed information
+            if conflict_details:
+                context = {
+                    'exam_schedule': exam_schedule,
+                    'courses': Course.objects.all().order_by('code'),
+                    'time_slots': TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time'),
+                    'conflict_details': conflict_details,
+                    'form_data': {
+                        'course_id': course_id,
+                        'exam_date': exam_date,
+                        'time_slot_id': time_slot_id
+                    }
+                }
+                return render(request, 'scheduler/edit_exam_schedule.html', context)
+            
+            # Update the exam schedule if no conflicts
+            exam_schedule.course = course
+            exam_schedule.date = exam_date_obj
+            exam_schedule.time_slot = time_slot
+            exam_schedule.save()
+            
+            messages.success(request, f"Exam schedule updated successfully! {course.code} - {exam_date_obj} {time_slot}")
             return redirect('portal:exam_timetable_grid')
             
+        except (Course.DoesNotExist, TimeSlot.DoesNotExist) as e:
+            messages.error(request, f"Invalid selection: {str(e)}")
+            return redirect('scheduler:edit_exam_schedule', exam_id=exam_id)
         except Exception as e:
-            messages.error(request, f"Error saving schedule: {str(e)}")
-            return redirect('edit_exam_schedule')
+            messages.error(request, f"Error updating exam schedule: {str(e)}")
+            return redirect('scheduler:edit_exam_schedule', exam_id=exam_id)
     
-    return redirect('edit_exam_schedule')
+    
+    
+    # Get current exam details
+    current_course = exam_schedule.course
+    current_date = exam_schedule.date
+    current_time_slot = exam_schedule.time_slot
+    
+    # Get all available courses with enrollment info
+    courses_with_enrollment = Course.objects.annotate(
+        student_count=Count('students', distinct=True)
+    ).order_by('code')
+    
+    # Get all exam time slots
+    exam_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
+    
+    # Get official exam dates only
+    exam_dates = list(ExamDate.objects.all().order_by('date'))
+    future_dates = [exam_date.date for exam_date in exam_dates]
+    
+    # Get first and last exam dates for display
+    first_exam_date = exam_dates[0] if exam_dates else None
+    last_exam_date = exam_dates[-1] if exam_dates else None
+    
+    # Get availability analysis for current exam
+    availability_analysis = get_exam_availability_analysis(
+        current_course, current_date, current_time_slot, exam_schedule
+    )
+    
+    # Get room availability for the current time slot
+    room_availability = get_room_availability_analysis(current_date, current_time_slot)
+    
+    # Get proctor availability for the current time slot
+    proctor_availability = get_proctor_availability_analysis(current_date, current_time_slot)
+    
+    # Get alternative suggestions
+    alternative_suggestions = get_alternative_exam_slots(current_course, current_date, current_time_slot)
+    
+    context = {
+        'exam_schedule': exam_schedule,
+        'courses': courses_with_enrollment,
+        'time_slots': exam_time_slots,
+        'exam_dates': exam_dates,
+        'first_exam_date': first_exam_date,
+        'last_exam_date': last_exam_date,
+        'availability_analysis': availability_analysis,
+        'room_availability': room_availability,
+        'proctor_availability': proctor_availability,
+        'alternative_suggestions': alternative_suggestions,
+    }
+    
+    return render(request, 'scheduler/edit_exam_schedule.html', context)
+
+
+def get_exam_availability_analysis(course, date, time_slot, current_exam):
+    """Analyze availability for a specific exam slot"""
+    
+    # Get conflicting exams (excluding current exam)
+    conflicting_exams = ExamSchedule.objects.filter(
+        date=date,
+        time_slot=time_slot
+    ).exclude(id=current_exam.id)
+    
+    # Get course enrollment
+    student_count = course.students.count()
+    
+    # Get available rooms for this time slot
+    available_rooms = Room.objects.filter(
+        ~Q(examroomassignment__exam__date=date, examroomassignment__exam__time_slot=time_slot)
+    ).order_by('-capacity')
+    
+    # Get available proctors
+    available_proctors = Lecturer.objects.filter(
+        is_proctor=True
+    ).exclude(
+        examroomassignment__exam__date=date, 
+        examroomassignment__exam__time_slot=time_slot
+    )
+    
+    return {
+        'conflicting_exams': conflicting_exams,
+        'student_count': student_count,
+        'available_rooms': available_rooms,
+        'available_proctors': available_proctors,
+        'total_room_capacity': sum(room.capacity for room in available_rooms),
+        'total_proctors': available_proctors.count(),
+    }
+
+
+def get_room_availability_analysis(date, time_slot):
+    """Analyze room availability for a specific time slot"""
+    
+    # Get all rooms
+    all_rooms = Room.objects.all().order_by('-capacity')
+    
+    # Get booked rooms for this time slot
+    booked_rooms = Room.objects.filter(
+        examroomassignment__exam__date=date,
+        examroomassignment__exam__time_slot=time_slot
+    )
+    
+    # Get available rooms
+    available_rooms = all_rooms.exclude(id__in=booked_rooms.values_list('id', flat=True))
+    
+    # Categorize rooms by type
+    room_categories = {}
+    for room in all_rooms:
+        room_type = getattr(room.room_type, 'name', 'Unknown')
+        if room_type not in room_categories:
+            room_categories[room_type] = {'total': 0, 'available': 0, 'booked': 0}
+        
+        room_categories[room_type]['total'] += 1
+        if room in available_rooms:
+            room_categories[room_type]['available'] += 1
+        else:
+            room_categories[room_type]['booked'] += 1
+    
+    return {
+        'all_rooms': all_rooms,
+        'booked_rooms': booked_rooms,
+        'available_rooms': available_rooms,
+        'room_categories': room_categories,
+        'total_capacity': sum(room.capacity for room in available_rooms),
+    }
+
+
+def get_proctor_availability_analysis(date, time_slot):
+    """Analyze proctor availability for a specific time slot"""
+    
+    # Get all proctors
+    all_proctors = Lecturer.objects.filter(is_proctor=True)
+    
+    # Get booked proctors for this time slot
+    booked_proctors = Lecturer.objects.filter(
+        is_proctor=True,
+        examroomassignment__exam__date=date,
+        examroomassignment__exam__time_slot=time_slot
+    )
+    
+    # Get available proctors
+    available_proctors = all_proctors.exclude(id__in=booked_proctors.values_list('id', flat=True))
+    
+    return {
+        'all_proctors': all_proctors,
+        'booked_proctors': booked_proctors,
+        'available_proctors': available_proctors,
+        'total_proctors': all_proctors.count(),
+        'available_count': available_proctors.count(),
+    }
+
+
+def get_alternative_exam_slots(course, current_date, current_time_slot):
+    """Get alternative time slots for the course within exam period only"""
+    
+    # Get all exam dates (excluding current date)
+    exam_dates = ExamDate.objects.exclude(date=current_date).order_by('date')
+    alternative_dates = [exam_date.date for exam_date in exam_dates]
+    
+    # Get all exam time slots
+    all_time_slots = TimeSlot.objects.filter(is_exam_slot=True).order_by('start_time')
+    
+    alternatives = []
+    for alt_date in alternative_dates:
+        for alt_time_slot in all_time_slots:
+            # Check if this slot is available for the course
+            conflicting_exams = ExamSchedule.objects.filter(
+                date=alt_date,
+                time_slot=alt_time_slot,
+                course=course
+            )
+            
+            if not conflicting_exams.exists():
+                # Check room availability
+                available_rooms = Room.objects.filter(
+                    ~Q(examroomassignment__exam__date=alt_date, examroomassignment__exam__time_slot=alt_time_slot)
+                )
+                
+                # Check proctor availability
+                available_proctors = Lecturer.objects.filter(
+                    is_proctor=True
+                ).exclude(
+                    examroomassignment__exam__date=alt_date, 
+                    examroomassignment__exam__time_slot=alt_time_slot
+                )
+                
+                alternatives.append({
+                    'date': alt_date,
+                    'time_slot': alt_time_slot,
+                    'available_rooms': available_rooms.count(),
+                    'available_proctors': available_proctors.count(),
+                    'total_capacity': sum(room.capacity for room in available_rooms),
+                })
+    
+    # Sort by date and time
+    alternatives.sort(key=lambda x: (x['date'], x['time_slot'].start_time))
+    
+    return alternatives[:10]  # Return top 10 alternatives
+
+
+@login_required
+def delete_exam_schedule(request, exam_id):
+    """
+    Delete a specific exam schedule entry - Admin only
+    """
+    if not request.user.is_admin and not request.user.is_superuser:
+        messages.error(request, "Only administrators can delete exam schedules.")
+        return redirect('portal:exam_timetable_grid')
+    
+    exam_schedule = get_object_or_404(ExamSchedule, id=exam_id)
+    
+    if request.method == 'POST':
+        course_info = f"{exam_schedule.course.code} - {exam_schedule.date} {exam_schedule.time_slot}"
+        exam_schedule.delete()
+        messages.success(request, f"Exam schedule deleted: {course_info}")
+        return redirect('portal:exam_timetable_grid')
+    
+    context = {
+        'exam_schedule': exam_schedule
+    }
+    
+    return render(request, 'scheduler/delete_exam_schedule.html', context)
+
+
+@login_required
+def edit_schedule(request, schedule_id):
+    """
+    Edit a specific schedule entry - Admin only
+    """
+    if not request.user.is_admin and not request.user.is_superuser:
+        messages.error(request, "Only administrators can edit schedules.")
+        return redirect('portal:timetable_grid')
+    
+    schedule = get_object_or_404(LectureSchedule, id=schedule_id)
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            course_id = request.POST.get('course')
+            lecturer_id = request.POST.get('lecturer')
+            room_id = request.POST.get('room')
+            day = request.POST.get('day')
+            time_slot_id = request.POST.get('time_slot')
+            assigned_class_id = request.POST.get('assigned_class')
+            
+            # Validate required fields
+            if not all([course_id, lecturer_id, room_id, day, time_slot_id, assigned_class_id]):
+                messages.error(request, "All fields are required.")
+                return redirect('scheduler:edit_schedule', schedule_id=schedule_id)
+            
+            # Get related objects
+            course = Course.objects.get(id=course_id)
+            lecturer = Lecturer.objects.get(id=lecturer_id)
+            room = Room.objects.get(id=room_id)
+            time_slot = TimeSlot.objects.get(id=time_slot_id)
+            assigned_class = Class.objects.get(id=assigned_class_id)
+            
+            # Check for conflicts before updating
+            conflicts = LectureSchedule.objects.filter(
+                day=day,
+                time_slot=time_slot
+            ).exclude(id=schedule_id)
+            
+            # Detailed conflict checking with specific information
+            conflict_details = []
+            
+            # Check room conflicts
+            room_conflicts = conflicts.filter(room=room)
+            if room_conflicts.exists():
+                for conflict in room_conflicts:
+                    conflict_details.append({
+                        'type': 'room',
+                        'message': f"Room {room.code} is already booked",
+                        'details': f"Course: {conflict.course.code} | Lecturer: {conflict.lecturer.name} | Class: {conflict.assigned_class.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # Check lecturer conflicts
+            lecturer_conflicts = conflicts.filter(lecturer=lecturer)
+            if lecturer_conflicts.exists():
+                for conflict in lecturer_conflicts:
+                    conflict_details.append({
+                        'type': 'lecturer',
+                        'message': f"Lecturer {lecturer.name} is already assigned",
+                        'details': f"Course: {conflict.course.code} | Room: {conflict.room.code} | Class: {conflict.assigned_class.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # Check class conflicts
+            class_conflicts = conflicts.filter(assigned_class=assigned_class)
+            if class_conflicts.exists():
+                for conflict in class_conflicts:
+                    conflict_details.append({
+                        'type': 'class',
+                        'message': f"Class {assigned_class.code} is already scheduled",
+                        'details': f"Course: {conflict.course.code} | Lecturer: {conflict.lecturer.name} | Room: {conflict.room.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # If there are conflicts, show detailed information
+            if conflict_details:
+                context = {
+                    'schedule': schedule,
+                    'courses': Course.objects.all().order_by('code'),
+                    'lecturers': Lecturer.objects.filter(is_active=True).order_by('name'),
+                    'rooms': Room.objects.all().order_by('code'),
+                    'time_slots': TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time'),
+                    'classes': Class.objects.all().order_by('code'),
+                    'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                    'conflict_details': conflict_details,
+                    'form_data': {
+                        'course_id': course_id,
+                        'lecturer_id': lecturer_id,
+                        'room_id': room_id,
+                        'day': day,
+                        'time_slot_id': time_slot_id,
+                        'assigned_class_id': assigned_class_id
+                    }
+                }
+                return render(request, 'scheduler/edit_schedule.html', context)
+            
+            # Update the schedule if no conflicts
+            schedule.course = course
+            schedule.lecturer = lecturer
+            schedule.room = room
+            schedule.day = day
+            schedule.time_slot = time_slot
+            schedule.assigned_class = assigned_class
+            schedule.save()
+            
+            messages.success(request, f"Schedule updated successfully! {course.code} - {day} {time_slot}")
+            return redirect('portal:timetable_grid')
+            
+        except (Course.DoesNotExist, Lecturer.DoesNotExist, Room.DoesNotExist, 
+                TimeSlot.DoesNotExist, Class.DoesNotExist) as e:
+            messages.error(request, f"Invalid selection: {str(e)}")
+            return redirect('scheduler:edit_schedule', schedule_id=schedule_id)
+        except Exception as e:
+            messages.error(request, f"Error updating schedule: {str(e)}")
+            return redirect('scheduler:edit_schedule', schedule_id=schedule_id)
+    
+    # GET request - show edit form
+    context = {
+        'schedule': schedule,
+        'courses': Course.objects.all().order_by('code'),
+        'lecturers': Lecturer.objects.filter(is_active=True).order_by('name'),
+        'rooms': Room.objects.all().order_by('code'),
+        'time_slots': TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time'),
+        'classes': Class.objects.all().order_by('code'),
+        'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    }
+    
+    return render(request, 'scheduler/edit_schedule.html', context)
+
+@login_required
+def delete_schedule(request, schedule_id):
+    """
+    Delete a specific schedule entry - Admin only
+    """
+    if not request.user.is_admin and not request.user.is_superuser:
+        messages.error(request, "Only administrators can delete schedules.")
+        return redirect('portal:timetable_grid')
+    
+    schedule = get_object_or_404(LectureSchedule, id=schedule_id)
+    
+    if request.method == 'POST':
+        course_info = f"{schedule.course.code} - {schedule.day} {schedule.time_slot}"
+        schedule.delete()
+        messages.success(request, f"Schedule deleted: {course_info}")
+        return redirect('portal:timetable_grid')
+    
+    context = {
+        'schedule': schedule
+    }
+    
+    return render(request, 'scheduler/delete_schedule.html', context)
+
+@login_required
+def add_schedule(request):
+    """
+    Add a new schedule entry manually - Admin only
+    """
+    if not request.user.is_admin and not request.user.is_superuser:
+        messages.error(request, "Only administrators can add schedules.")
+        return redirect('portal:timetable_grid')
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            course_id = request.POST.get('course')
+            lecturer_id = request.POST.get('lecturer')
+            room_id = request.POST.get('room')
+            day = request.POST.get('day')
+            time_slot_id = request.POST.get('time_slot')
+            assigned_class_id = request.POST.get('assigned_class')
+            
+            # Validate required fields
+            if not all([course_id, lecturer_id, room_id, day, time_slot_id, assigned_class_id]):
+                messages.error(request, "All fields are required.")
+                return redirect('scheduler:add_schedule')
+            
+            # Get related objects
+            course = Course.objects.get(id=course_id)
+            lecturer = Lecturer.objects.get(id=lecturer_id)
+            room = Room.objects.get(id=room_id)
+            time_slot = TimeSlot.objects.get(id=time_slot_id)
+            assigned_class = Class.objects.get(id=assigned_class_id)
+            
+            # Check for conflicts
+            conflicts = LectureSchedule.objects.filter(
+                day=day,
+                time_slot=time_slot
+            )
+            
+            # Detailed conflict checking with specific information
+            conflict_details = []
+            
+            # Check room conflicts
+            room_conflicts = conflicts.filter(room=room)
+            if room_conflicts.exists():
+                for conflict in room_conflicts:
+                    conflict_details.append({
+                        'type': 'room',
+                        'message': f"Room {room.code} is already booked",
+                        'details': f"Course: {conflict.course.code} | Lecturer: {conflict.lecturer.name} | Class: {conflict.assigned_class.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # Check lecturer conflicts
+            lecturer_conflicts = conflicts.filter(lecturer=lecturer)
+            if lecturer_conflicts.exists():
+                for conflict in lecturer_conflicts:
+                    conflict_details.append({
+                        'type': 'lecturer',
+                        'message': f"Lecturer {lecturer.name} is already assigned",
+                        'details': f"Course: {conflict.course.code} | Room: {conflict.room.code} | Class: {conflict.assigned_class.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # Check class conflicts
+            class_conflicts = conflicts.filter(assigned_class=assigned_class)
+            if class_conflicts.exists():
+                for conflict in class_conflicts:
+                    conflict_details.append({
+                        'type': 'class',
+                        'message': f"Class {assigned_class.code} is already scheduled",
+                        'details': f"Course: {conflict.course.code} | Lecturer: {conflict.lecturer.name} | Room: {conflict.room.code}",
+                        'conflict_schedule': conflict
+                    })
+            
+            # If there are conflicts, show detailed information
+            if conflict_details:
+                context = {
+                    'courses': Course.objects.all().order_by('code'),
+                    'lecturers': Lecturer.objects.filter(is_active=True).order_by('name'),
+                    'rooms': Room.objects.all().order_by('code'),
+                    'time_slots': TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time'),
+                    'classes': Class.objects.all().order_by('code'),
+                    'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                    'conflict_details': conflict_details,
+                    'form_data': {
+                        'course_id': course_id,
+                        'lecturer_id': lecturer_id,
+                        'room_id': room_id,
+                        'day': day,
+                        'time_slot_id': time_slot_id,
+                        'assigned_class_id': assigned_class_id
+                    }
+                }
+                return render(request, 'scheduler/add_schedule.html', context)
+            
+            # Create new schedule
+            new_schedule = LectureSchedule.objects.create(
+                course=course,
+                lecturer=lecturer,
+                room=room,
+                day=day,
+                time_slot=time_slot,
+                assigned_class=assigned_class
+            )
+            
+            messages.success(request, f"Schedule added successfully! {course.code} - {day} {time_slot}")
+            return redirect('portal:timetable_grid')
+            
+        except (Course.DoesNotExist, Lecturer.DoesNotExist, Room.DoesNotExist, 
+                TimeSlot.DoesNotExist, Class.DoesNotExist) as e:
+            messages.error(request, f"Invalid selection: {str(e)}")
+            return redirect('scheduler:add_schedule')
+        except Exception as e:
+            messages.error(request, f"Error creating schedule: {str(e)}")
+            return redirect('scheduler:add_schedule')
+    
+    # GET request - show add form
+    context = {
+        'courses': Course.objects.all().order_by('code'),
+        'lecturers': Lecturer.objects.filter(is_active=True).order_by('name'),
+        'rooms': Room.objects.all().order_by('code'),
+        'time_slots': TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time'),
+        'classes': Class.objects.all().order_by('code'),
+        'days': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    }
+    
+    return render(request, 'scheduler/add_schedule.html', context)

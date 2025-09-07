@@ -1,0 +1,60 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Delete Exam Schedule{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-trash"></i> Delete Exam Schedule
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Warning</h5>
+                        <p>Are you sure you want to delete this exam schedule?</p>
+                    </div>
+
+                    <div class="exam-details mb-4">
+                        <h6>Exam Details:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Course:</strong> {{ exam_schedule.course.code }} - {{ exam_schedule.course.name }}</li>
+                            <li><strong>Date:</strong> {{ exam_schedule.date|date:"F j, Y" }}</li>
+                            <li><strong>Time:</strong> {{ exam_schedule.time_slot.start_time|time:"H:i" }} - {{ exam_schedule.time_slot.end_time|time:"H:i" }}</li>
+                        </ul>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Delete Exam Schedule
+                            </button>
+                            <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .exam-details {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        border: 1px solid #dee2e6;
+    }
+    
+    .exam-details ul li {
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}

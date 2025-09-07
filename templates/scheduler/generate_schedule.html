@@ -14,7 +14,7 @@
                     <i class="bi bi-calendar-week display-4 text-primary mb-3"></i>
                     <h5 class="card-title">Class Timetable Scheduler</h5>
                     <p class="card-text text-muted">Automatically generate a lecture timetable based on course, room, and lecturer availability constraints.</p>
-                    <form method="post" action="{% url 'generate' %}">
+                    <form method="post" action="{% url 'scheduler:generate' %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-primary mt-2">Run Scheduler</button>
                     </form>
@@ -29,7 +29,7 @@
                     <i class="bi bi-pencil-square display-4 text-success mb-3"></i>
                     <h5 class="card-title">Exam Timetable Scheduler</h5>
                     <p class="card-text text-muted">Generate an exam timetable by assigning rooms, times, and proctors while avoiding conflicts.</p>
-                    <form method="post" action="{% url 'generate_exam_schedule' %}">
+                    <form method="post" action="{% url 'scheduler:generate_exam_schedule' %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-success mt-2">Run Exam Scheduler</button>
                     </form>

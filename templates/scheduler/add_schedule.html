@@ -1,0 +1,304 @@
+{% extends 'home/base.html' %}
+{% block title %}Add New Schedule{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus"></i> Add New Schedule
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Manual Schedule Creation:</strong> Add a new schedule entry manually. 
+                        The system will automatically check for conflicts before saving.
+                    </div>
+
+                    <!-- Conflict Details Section -->
+                    {% if conflict_details %}
+                    <div class="alert alert-danger mb-4">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle"></i> Scheduling Conflicts Detected!
+                        </h5>
+                        <p class="mb-3">The following conflicts prevent saving your changes:</p>
+                        
+                        <div class="conflict-list">
+                            {% for conflict in conflict_details %}
+                            <div class="conflict-item mb-3 p-3 border border-danger rounded">
+                                <div class="d-flex align-items-center mb-2">
+                                    {% if conflict.type == 'room' %}
+                                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                        <span class="badge bg-danger me-2">Room Conflict</span>
+                                    {% elif conflict.type == 'lecturer' %}
+                                        <i class="fas fa-user-tie text-warning me-2"></i>
+                                        <span class="badge bg-warning me-2">Lecturer Conflict</span>
+                                    {% elif conflict.type == 'class' %}
+                                        <i class="fas fa-users text-info me-2"></i>
+                                        <span class="badge bg-info me-2">Class Conflict</span>
+                                    {% endif %}
+                                    <strong class="text-danger">{{ conflict.message }}</strong>
+                                </div>
+                                
+                                <div class="conflict-details">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <p class="mb-1"><strong>Conflict Details:</strong> {{ conflict.details }}</p>
+                                            <p class="mb-1"><strong>Time:</strong> {{ form_data.day }} {{ form_data.time_slot_id }}</p>
+                                        </div>
+                                        <div class="col-md-4 text-end">
+                                            <a href="{% url 'scheduler:edit_schedule' conflict.conflict_schedule.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i> Edit Conflicting Schedule
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mt-3">
+                            <p class="mb-2"><strong>To resolve these conflicts, you can:</strong></p>
+                            <ul class="mb-0">
+                                <li>Choose a different time slot</li>
+                                <li>Select a different room</li>
+                                <li>Assign a different lecturer</li>
+                                <li>Change the class assignment</li>
+                                <li>Edit the conflicting schedule above</li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" class="needs-validation" novalidate 
+                          data-conflict-types="{% if conflict_details %}{% for conflict in conflict_details %}{{ conflict.type }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="course" class="form-label">Course *</label>
+                                    <select class="form-select" id="course" name="course" required>
+                                        <option value="">Select Course</option>
+                                        {% for course in courses %}
+                                        <option value="{{ course.id }}" 
+                                                {% if form_data.course_id == course.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ course.code }} - {{ course.title }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a course.
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="lecturer" class="form-label">Lecturer *</label>
+                                    <select class="form-select" id="lecturer" name="lecturer" required>
+                                        <option value="">Select Lecturer</option>
+                                        {% for lecturer in lecturers %}
+                                        <option value="{{ lecturer.id }}" 
+                                                {% if form_data.lecturer_id == lecturer.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ lecturer.name }} ({{ lecturer.department.name }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a lecturer.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="room" class="form-label">Room *</label>
+                                    <select class="form-select" id="room" name="room" required>
+                                        <option value="">Select Room</option>
+                                        {% for room in rooms %}
+                                        <option value="{{ room.id }}" 
+                                                {% if form_data.room_id == room.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ room.code }} ({{ room.room_type.name }}, Capacity: {{ room.capacity }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a room.
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="assigned_class" class="form-label">Class *</label>
+                                    <select class="form-select" id="assigned_class" name="assigned_class" required>
+                                        <option value="">Select Class</option>
+                                        {% for class in classes %}
+                                        <option value="{{ class.id }}" 
+                                                {% if form_data.assigned_class_id == class.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ class.code }} - {{ class.name|default:"No Name" }} (Size: {{ class.size }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a class.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="day" class="form-label">Day *</label>
+                                    <select class="form-select" id="day" name="day" required>
+                                        <option value="">Select Day</option>
+                                        {% for day in days %}
+                                        <option value="{{ day }}" 
+                                                {% if form_data.day == day %}selected{% endif %}>
+                                            {{ day }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a day.
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="time_slot" class="form-label">Time Slot *</label>
+                                    <select class="form-select" id="time_slot" name="time_slot" required>
+                                        <option value="">Select Time Slot</option>
+                                        {% for time_slot in time_slots %}
+                                        <option value="{{ time_slot.id }}" 
+                                                {% if form_data.time_slot_id == time_slot.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ time_slot.start_time|time:"H:i" }} - {{ time_slot.end_time|time:"H:i" }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Please select a time slot.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if not conflict_details %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Conflict Check:</strong> The system will automatically check for conflicts with:
+                            <ul class="mb-0 mt-2">
+                                <li>Room availability (no double booking)</li>
+                                <li>Lecturer availability (no overlapping assignments)</li>
+                                <li>Class availability (no overlapping schedules)</li>
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Add Schedule
+                            </button>
+                            <a href="{% url 'portal:timetable_grid' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.conflict-item {
+    background-color: #fff5f5;
+    border-left: 4px solid #dc3545 !important;
+}
+
+.conflict-item:hover {
+    background-color: #fef2f2;
+}
+
+.conflict-details {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.badge {
+    font-size: 0.8rem;
+}
+
+.form-select:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.alert-danger {
+    border-left: 5px solid #dc3545;
+}
+
+.conflict-highlight {
+    border-color: #dc3545 !important;
+    background-color: #fff5f5;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight form fields that have conflicts
+    const form = document.querySelector('form');
+    const conflictTypesStr = form.getAttribute('data-conflict-types');
+    const conflictTypes = conflictTypesStr ? conflictTypesStr.split(',') : [];
+    
+    if (conflictTypes.includes('room')) {
+        const roomField = document.getElementById('room');
+        if (roomField) roomField.classList.add('conflict-highlight');
+    }
+    if (conflictTypes.includes('lecturer')) {
+        const lecturerField = document.getElementById('lecturer');
+        if (lecturerField) lecturerField.classList.add('conflict-highlight');
+    }
+    if (conflictTypes.includes('class')) {
+        const classField = document.getElementById('assigned_class');
+        if (classField) classField.classList.add('conflict-highlight');
+    }
+    
+    // Add visual feedback when form is submitted
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    if (form && submitBtn) {
+        form.addEventListener('submit', function() {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking Conflicts...';
+            submitBtn.disabled = true;
+        });
+    }
+    
+    // Form validation
+    (function() {
+        'use strict';
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
+{% endblock %}

@@ -17,10 +17,10 @@
     {% if success %}
         <!-- Action Buttons at the Top -->
         <div class="mb-4 d-flex gap-3">
-            <a href="{% url 'accept_exam_schedule' %}" class="btn btn-success btn-lg">
+            <a href="{% url 'scheduler:accept_exam_schedule' %}" class="btn btn-success btn-lg">
                 <i class="fas fa-check"></i> Accept & Save Exam Schedule
             </a>
-            <a href="{% url 'generate_exam_schedule' %}" class="btn btn-warning btn-lg">
+            <a href="{% url 'scheduler:generate_exam_schedule' %}" class="btn btn-warning btn-lg">
                 <i class="fas fa-redo"></i> Generate New Exam Schedule
             </a>
             <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-info btn-lg">

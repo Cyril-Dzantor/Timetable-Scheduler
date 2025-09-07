@@ -209,7 +209,7 @@
                                                 <a href="{% url 'portal:exam_timetable_grid' %}" class="btn btn-outline-secondary btn-sm">
                                                     <i class="fas fa-eye"></i> View All Exams
                                                 </a>
-                                                <a href="{% url 'generate_exam_schedule' %}" class="btn btn-outline-success btn-sm">
+                                                <a href="{% url 'scheduler:generate_exam_schedule' %}" class="btn btn-outline-success btn-sm">
                                                     <i class="fas fa-plus"></i> Generate New Schedule
                                                 </a>
                                                 <a href="{% url 'portal:timetable_grid' %}" class="btn btn-outline-primary btn-sm">
@@ -323,6 +323,19 @@
                                                     <span class="text-success">Invigilators: {{ exam.invigilators|join:", " }}</span>
                                                 </div>
                                                 {% endif %}
+                                                
+                                                {% if request.user.is_admin or request.user.is_superuser and exam.exam_id %}
+                                                <div class="admin-actions mt-2">
+                                                    <div class="btn-group" role="group" aria-label="Admin Actions">
+                                                        <a href="{% url 'scheduler:edit_exam_schedule' exam.exam_id %}" class="btn btn-primary btn-sm">
+                                                            <i class="fas fa-edit"></i> Edit
+                                                        </a>
+                                                        <a href="{% url 'scheduler:delete_exam_schedule' exam.exam_id %}" class="btn btn-danger btn-sm">
+                                                            <i class="fas fa-trash"></i> Delete
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
                                             </div>
                                             {% endfor %}
                                         {% else %}
@@ -343,7 +356,7 @@
                         <h5>No Exams Found</h5>
                         <p>There are no exams matching your current criteria.</p>
                         {% if user_type == 'admin' %}
-                        <a href="{% url 'generate_exam_schedule' %}" class="btn btn-sm btn-success mt-2">
+                                                    <a href="{% url 'scheduler:generate_exam_schedule' %}" class="btn btn-sm btn-success mt-2">
                             <i class="fas fa-plus"></i> Generate Exam Schedule
                         </a>
                         {% endif %}
@@ -413,7 +426,7 @@
                     <i class="fas fa-chalkboard-teacher"></i> View Lecture Timetable
                 </a>
                 {% if user_type == 'admin' %}
-                <a href="{% url 'generate_exam_schedule' %}" class="btn btn-success">
+                                        <a href="{% url 'scheduler:generate_exam_schedule' %}" class="btn btn-success">
                     <i class="fas fa-plus"></i> Generate New Exam Schedule
                 </a>
                 {% endif %}
@@ -487,6 +500,36 @@
 .nav-tabs .nav-link.active {
     font-weight: 600;
     border-bottom: 3px solid #0d6efd;
+}
+
+.admin-actions {
+    border-top: 1px solid #ffcc80;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.admin-actions .btn-group {
+    width: 100%;
+}
+
+.admin-actions .btn {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.admin-actions .btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.admin-actions .btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.admin-actions .btn:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
 }
 
 @media (max-width: 768px) {
