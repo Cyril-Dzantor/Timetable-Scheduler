@@ -7,7 +7,7 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">
                         {% if user_type == 'student' %}
                             📝 My Exam Schedule
@@ -20,8 +20,12 @@
                         {% endif %}
                     </h4>
                     <div class="d-flex gap-2">
-                        {% if user_type == 'student' or user_type == 'lecturer' %}
+                        {% if user_type == 'student' %}
                             <a href="{% url 'portal:exam_schedule_list' %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-list me-1"></i> List View
+                            </a>
+                        {% else %}
+                            <a href="{% url 'portal:exam_schedule_list_all' %}" class="btn btn-sm btn-info">
                                 <i class="fas fa-list me-1"></i> List View
                             </a>
                         {% endif %}
@@ -145,13 +149,13 @@
                             <div class="alert alert-warning">
                                 <strong>Active Filters:</strong>
                                 {% if selected_class %}
-                                    <span class="badge bg-warning me-2">Class: {{ selected_class }}</span>
+                                    <span class="badge me-2" style="background-color: #17a2b8; color: white;">Class: {{ selected_class }}</span>
                                 {% endif %}
                                 {% if selected_date %}
-                                    <span class="badge bg-danger me-2">Date: {{ selected_date }}</span>
+                                    <span class="badge me-2" style="background-color: #dc3545; color: white;">Date: {{ selected_date }}</span>
                                 {% endif %}
                                 {% if selected_room %}
-                                    <span class="badge bg-info me-2">Room: {{ selected_room }}</span>
+                                    <span class="badge me-2" style="background-color: #6f42c1; color: white;">Room: {{ selected_room }}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -245,23 +249,23 @@
                                 <div class="row">
                                     <div class="col-md-3">
                                         <strong>Total Exams:</strong> 
-                                        <span class="badge bg-warning">{{ exam_schedules.count }}</span>
+                                        <span class="badge" style="background-color: #17a2b8; color: white;">{{ exam_schedules.count }}</span>
                                     </div>
                                     <div class="col-md-3">
                                         <strong>Exam Time Slots:</strong> 
-                                        <span class="badge bg-info">{{ time_slots|length }}</span>
+                                        <span class="badge" style="background-color: #6f42c1; color: white;">{{ time_slots|length }}</span>
                                     </div>
                                     <div class="col-md-2">
                                         <strong>Classes:</strong> 
-                                        <span class="badge bg-primary">{{ all_classes|length }}</span>
+                                        <span class="badge" style="background-color: #1976d2; color: white;">{{ all_classes|length }}</span>
                                     </div>
                                     <div class="col-md-2">
                                         <strong>Exam Dates:</strong> 
-                                        <span class="badge bg-danger">{{ exam_dates|length }}</span>
+                                        <span class="badge" style="background-color: #dc3545; color: white;">{{ exam_dates|length }}</span>
                                     </div>
                                     <div class="col-md-2">
                                         <strong>Rooms:</strong> 
-                                        <span class="badge bg-info">{{ all_rooms|length }}</span>
+                                        <span class="badge" style="background-color: #6f42c1; color: white;">{{ all_rooms|length }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -285,7 +289,7 @@
                             <tbody>
                                 {% for time_slot in time_slots %}
                                 <tr>
-                                    <td class="time-cell text-center font-weight-bold" style="background-color: #fff3e0;">
+                                    <td class="time-cell text-center font-weight-bold" style="background-color: #f8f9fa; color: #495057;">
                                         {{ time_slot.start_time|time:"H:i" }} - {{ time_slot.end_time|time:"H:i" }}
                                     </td>
                                     {% for date in exam_dates %}
@@ -293,24 +297,24 @@
                                     <td class="exam-schedule-cell" style="height: 100px; vertical-align: top;">
                                         {% if grid_data|get_item:date_str|get_item:time_slot.id %}
                                             {% for exam in grid_data|get_item:date_str|get_item:time_slot.id %}
-                                            <div class="exam-item p-2 mb-1" style="background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
-                                                <div class="course-code font-weight-bold text-warning">📝 {{ exam.course_code }}</div>
-                                                <div class="course-title small text-muted">{{ exam.course_title|truncatechars:30 }}</div>
-                                                <div class="exam-date small text-danger">
+                                            <div class="exam-item p-2 mb-1" style="background-color: #e3f2fd; border-left: 4px solid #1976d2; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                                <div class="course-code font-weight-bold" style="color: #1976d2;">📝 {{ exam.course_code }}</div>
+                                                <div class="course-title small" style="color: #6c757d;">{{ exam.course_title|truncatechars:30 }}</div>
+                                                <div class="exam-date small" style="color: #dc3545;">
                                                     <i class="fas fa-calendar-check"></i> {{ exam.date|date:"Y-m-d" }}
                                                 </div>
-                                                <div class="exam-duration small text-info">
+                                                <div class="exam-duration small" style="color: #17a2b8;">
                                                     <i class="fas fa-clock"></i> {{ exam.duration }}
                                                 </div>
                                                 <div class="exam-rooms small">
-                                                    <i class="fas fa-map-marker-alt text-primary"></i>
+                                                    <i class="fas fa-map-marker-alt" style="color: #6f42c1;"></i>
                                                     {% if exam.rooms|length == 1 %}
-                                                        <span class="text-primary">{{ exam.rooms.0.room_code }} ({{ exam.rooms.0.room_type }})</span>
+                                                        <span style="color: #6f42c1;">{{ exam.rooms.0.room_code }} ({{ exam.rooms.0.room_type }})</span>
                                                     {% else %}
-                                                        <span class="text-primary">{{ exam.rooms|length }} Rooms:</span>
+                                                        <span style="color: #6f42c1;">{{ exam.rooms|length }} Rooms:</span>
                                                         <div class="room-badges">
                                                             {% for room in exam.rooms %}
-                                                                <span class="badge bg-light text-dark me-1" title="{{ room.room_code }} - {{ room.room_type }} ({{ room.capacity }} seats)">
+                                                                <span class="badge me-1" style="background-color: #e9ecef; color: #495057;" title="{{ room.room_code }} - {{ room.room_type }} ({{ room.capacity }} seats)">
                                                                     {{ room.room_code }}
                                                                 </span>
                                                             {% endfor %}
@@ -319,8 +323,8 @@
                                                 </div>
                                                 {% if exam.invigilators and user_type == 'lecturer' and view_type == 'proctoring' %}
                                                 <div class="invigilators small mt-1">
-                                                    <i class="fas fa-user-shield text-success"></i>
-                                                    <span class="text-success">Invigilators: {{ exam.invigilators|join:", " }}</span>
+                                                    <i class="fas fa-user-shield" style="color: #28a745;"></i>
+                                                    <span style="color: #28a745;">Invigilators: {{ exam.invigilators|join:", " }}</span>
                                                 </div>
                                                 {% endif %}
                                                 

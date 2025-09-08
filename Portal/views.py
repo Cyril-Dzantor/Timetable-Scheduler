@@ -86,8 +86,9 @@ def timetable_grid(request):
     user = request.user
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     
-    # Get all time slots for the grid (lecture slots only)
-    time_slots = TimeSlot.objects.filter(is_lecture_slot=True).order_by('start_time')
+    # We'll derive time slots from the filtered LectureSchedule below to ensure
+    # we only show slots that actually have schedules.
+    time_slots = TimeSlot.objects.none()
     
     # Get filter parameters
     selected_class = request.GET.get('class_filter', '')
@@ -148,6 +149,12 @@ def timetable_grid(request):
     if selected_room:  # Add room filter
         schedules = schedules.filter(room__code=selected_room)
     
+    # Now derive time slots from the filtered schedules so the grid shows
+    # only slots that actually have LectureSchedule entries
+    time_slots = TimeSlot.objects.filter(
+        id__in=schedules.values_list('time_slot_id', flat=True).distinct()
+    ).order_by('start_time')
+
     # Create grid data structure
     grid_data = defaultdict(lambda: defaultdict(list))
     
@@ -493,6 +500,121 @@ def exam_timetable_grid(request):
     
     return render(request, 'portal/exam_timetable_grid.html', context)
 
+
+@login_required
+def exam_schedule_list_all(request):
+    """
+    Role-aware exam list view for Students, Lecturers, and Admins.
+    Reuses the student layout idea but broadens data per role.
+    """
+    user = request.user
+    exams_qs = ExamSchedule.objects.select_related('course', 'time_slot').prefetch_related(
+        Prefetch('room_assignments', queryset=ExamRoomAssignment.objects.select_related('room__building__college')
+                 .prefetch_related('class_allocations'))
+    ).order_by('date', 'time_slot__start_time').distinct()
+
+    # Role scoping
+    if user.is_student and hasattr(user, 'student_profile'):
+        registered = user.student_profile.registered_courses.all()
+        student_class = user.student_profile.class_code
+        exams_qs = exams_qs.filter(course__in=registered)
+    elif user.is_lecturer and hasattr(user, 'lecturer_profile'):
+        exams_qs = exams_qs.filter(
+            Q(course__lecturers__user=user) |
+            Q(room_assignments__proctors__user=user)
+        ).distinct()
+    elif user.is_admin and hasattr(user, 'admin_profile') and user.admin_profile.college_id:
+        exams_qs = exams_qs.filter(room_assignments__room__building__college=user.admin_profile.college).distinct()
+
+    # Build list items
+    items = []
+    for exam in exams_qs:
+        start_time = exam.time_slot.start_time
+        end_time = exam.time_slot.end_time
+        duration_minutes = (end_time.hour * 60 + end_time.minute) - (start_time.hour * 60 + start_time.minute)
+        rooms = []
+        for ra in exam.room_assignments.all():
+            college = getattr(getattr(getattr(ra.room, 'building', None), 'college', None), 'name', None)
+            rooms.append({
+                'code': ra.room.code,
+                'building': getattr(ra.room.building, 'name', 'N/A'),
+                'college': college or 'College Not Specified',
+            })
+
+        items.append({
+            'exam_id': exam.id,
+            'course_code': exam.course.code,
+            'course_title': exam.course.title,
+            'date': exam.date,
+            'day': exam.date.strftime('%A'),
+            'start_time': start_time.strftime('%H:%M'),
+            'end_time': end_time.strftime('%H:%M'),
+            'duration': f"{duration_minutes} minutes",
+            'rooms': rooms or [{'code': 'TBA', 'building': 'To be announced', 'college': 'College Not Specified'}],
+        })
+
+    if user.is_authenticated:
+        if user.is_student:
+            base_template = 'portal/base.html'
+        elif user.is_lecturer:
+            base_template = 'portal/base.html'
+        else:
+            base_template = 'home/base.html'
+    else:
+        base_template = 'home/base.html'
+    return render(request, 'portal/exam_schedule_list_all.html', {
+        'items': items,
+        'base_template': base_template,
+        'role': 'student' if user.is_student else 'lecturer' if user.is_lecturer else 'admin'
+    })
+
+
+@login_required
+def timetable_list_view(request):
+    """Role-aware list view for the normal lecture timetable."""
+    user = request.user
+    schedules = LectureSchedule.objects.select_related('course', 'time_slot', 'room', 'assigned_class', 'lecturer')
+
+    if user.is_student and hasattr(user, 'student_profile'):
+        registered = user.student_profile.registered_courses.all()
+        class_code = user.student_profile.class_code
+        schedules = schedules.filter(course__in=registered, assigned_class__code=class_code)
+    elif user.is_lecturer and hasattr(user, 'timetable_lecturer') and user.timetable_lecturer:
+        schedules = schedules.filter(lecturer=user.timetable_lecturer)
+    elif user.is_admin:
+        # optional: keep as all; could filter by admin college if modeled
+        pass
+
+    items = []
+    for s in schedules.order_by('time_slot__start_time'):
+        start = s.time_slot.start_time.strftime('%H:%M')
+        end = s.time_slot.end_time.strftime('%H:%M')
+        items.append({
+            'schedule_id': s.id,
+            'course_code': s.course.code,
+            'course_title': s.course.title,
+            'day': s.day,
+            'start_time': start,
+            'end_time': end,
+            'room': getattr(s.room, 'code', 'TBA'),
+            'class_code': getattr(s.assigned_class, 'code', ''),
+            'lecturer': getattr(s.lecturer, 'name', ''),
+        })
+
+    if user.is_authenticated:
+        if user.is_student:
+            base_template = 'portal/base.html'
+        elif user.is_lecturer:
+            base_template = 'portal/base.html'
+        else:
+            base_template = 'home/base.html'
+    else:
+        base_template = 'home/base.html'
+    return render(request, 'portal/timetable_list.html', {
+        'items': items,
+        'base_template': base_template,
+        'role': 'student' if user.is_student else 'lecturer' if user.is_lecturer else 'admin'
+    })
 @login_required
 def student_exam_schedule_list(request):
     """
@@ -600,10 +722,20 @@ def student_exam_schedule_list(request):
                 'is_assigned': False
             }]
         })
+
+    if user.is_authenticated:
+        if user.is_student:
+            base_template = 'portal/base.html'
+        elif user.is_lecturer:
+            base_template = 'portal/base.html'
+        else:
+            base_template = 'home/base.html'
+    else:
+        base_template = 'home/base.html'
     
     context = {
         'exams': exams,
-        'base_template': 'portal/base.html',
+        'base_template': base_template,
         'student_name': user.get_full_name() or user.username,
         'student_class': student_class,
         'student_index': student_index,

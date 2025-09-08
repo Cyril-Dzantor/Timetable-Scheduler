@@ -1,0 +1,71 @@
+{% extends base_template %}
+{% load static %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h4 class="mb-0">My Profile</h4>
+          <div class="profile-image-container">
+            <div class="profile-initials-circle bg-light text-primary rounded-circle d-flex align-items-center justify-content-center">
+              {{ initials }}
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <h5>Account</h5>
+            <div><strong>Username:</strong> {{ user_obj.username }}</div>
+            <div><strong>Email:</strong> {{ user_obj.email }}</div>
+            <div><strong>Role:</strong>
+              {% if user_obj.is_student %} Student {% elif user_obj.is_lecturer %} Lecturer {% elif user_obj.is_admin %} Admin {% else %} User {% endif %}
+            </div>
+          </div>
+
+          {% if student_profile %}
+          <hr>
+          <h5>Student Profile</h5>
+          <div><strong>Index Number:</strong> {{ student_profile.index_number }}</div>
+          <div><strong>Program:</strong> {{ student_profile.program }}</div>
+          <div><strong>Class:</strong> {{ student_profile.class_code }}</div>
+          <div><strong>College:</strong> {{ student_profile.college.name|default:'-' }}</div>
+          {% endif %}
+
+          {% if lecturer_profile %}
+          <hr>
+          <h5>Lecturer Profile</h5>
+          <div><strong>Staff ID:</strong> {{ lecturer_profile.staff_id }}</div>
+          <div><strong>Department:</strong> {{ lecturer_profile.department }}</div>
+          <div><strong>College:</strong> {{ lecturer_profile.college.name|default:'-' }}</div>
+          {% endif %}
+
+          {% if admin_profile %}
+          <hr>
+          <h5>Admin Profile</h5>
+          <div><strong>Staff ID:</strong> {{ admin_profile.staff_id }}</div>
+          <div><strong>Department:</strong> {{ admin_profile.department }}</div>
+          <div><strong>College:</strong> {{ admin_profile.college.name|default:'-' }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.profile-image-container {
+  width: 60px;
+  height: 60px;
+}
+
+.profile-initials-circle {
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+  font-weight: bold;
+}
+</style>
+{% endblock %}

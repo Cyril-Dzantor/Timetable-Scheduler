@@ -6,6 +6,7 @@ from django.contrib import messages
 from .forms import CustomLoginForm, CustomRegisterForm,ComplaintForm 
 from django.utils import timezone
 from .models import Complaint 
+from django.db.models import Q
 
 def login_view(request):
     if request.method == 'POST':
@@ -56,7 +57,7 @@ def respond_complaint(request, complaint_id):
     complaint = get_object_or_404(Complaint, id=complaint_id)
     
     # Verify admin is from the same college as the complaint
-    if request.user.admin_profile.college != complaint.user.college:
+    if request.user.admin_profile.college != complaint.college:
         raise PermissionDenied("You can only respond to complaints from your college")
     
     if request.method == 'POST':
@@ -137,8 +138,41 @@ def complaint_list(request):
 
 @user_passes_test(lambda u: u.is_admin)
 def admin_complaints(request):
-    # Only show complaints from the admin's college
-    complaints = Complaint.objects.filter(
-        college=request.user.admin_profile.college
-    ).order_by('-submitted_at')
+    # Show complaints from the admin's college.
+    # Include: (a) complaints with Complaint.college matching admin's college,
+    # and (b) legacy complaints where college is null but the user's profile matches.
+    admin_college = getattr(request.user.admin_profile, 'college', None)
+    if not admin_college:
+        complaints = Complaint.objects.none()
+    else:
+        complaints = Complaint.objects.filter(
+            Q(college=admin_college)
+            |
+            Q(college__isnull=True, user__student_profile__college=admin_college)
+            |
+            Q(college__isnull=True, user__lecturer_profile__college=admin_college)
+        ).order_by('-submitted_at')
     return render(request, 'users/admin_complaints.html', {'complaints': complaints})
+
+
+@login_required
+def profile_view(request):
+    user = request.user
+    base_template = 'home/base.html' if user.is_admin else 'portal/base.html'
+
+    student_profile = getattr(user, 'student_profile', None)
+    lecturer_profile = getattr(user, 'lecturer_profile', None)
+    admin_profile = getattr(user, 'admin_profile', None)
+    
+    # Generate initials for the profile image
+    initials = ''.join([name[0].upper() for name in user.get_full_name().split() if name]) or user.username[0].upper()
+    
+    context = {
+        'base_template': base_template,
+        'user_obj': user,
+        'student_profile': student_profile,
+        'lecturer_profile': lecturer_profile,
+        'admin_profile': admin_profile,
+        'initials': initials,  
+    }
+    return render(request, 'users/profile.html', context)

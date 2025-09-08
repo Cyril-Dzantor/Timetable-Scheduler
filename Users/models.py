@@ -72,12 +72,24 @@ class Complaint(models.Model):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    college = models.ForeignKey('Timetable.College', on_delete=models.CASCADE, related_name='complaints', null=True, blank=True)
     title = models.CharField(max_length=255)
     message = models.TextField()
     status = models.CharField(max_length=10, choices=REQUEST_STATUS, default='Pending')
     response = models.TextField(blank=True, null=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        # Auto-populate college from user's profile if not explicitly set
+        if self.college is None and getattr(self, 'user_id', None):
+            user = self.user
+            self.college = (
+                getattr(getattr(user, 'student_profile', None), 'college', None)
+                or getattr(getattr(user, 'lecturer_profile', None), 'college', None)
+                or getattr(getattr(user, 'admin_profile', None), 'college', None)
+            )
+        super().save(*args, **kwargs)
 
     def get_conversation(self):
         conversation = []

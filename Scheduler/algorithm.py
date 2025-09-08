@@ -376,6 +376,8 @@ def exam_schedule(
 ):
     # Initialization
     exam_schedule = []
+    # Prevent per-student double-booking: track each student's (day, slot) assignments
+    student_slot_bookings = defaultdict(set)
     room_usage = defaultdict(lambda: defaultdict(set))
     room_courses = defaultdict(lambda: defaultdict(set))
     proctor_used = defaultdict(lambda: defaultdict(set))
@@ -445,7 +447,8 @@ def exam_schedule(
                     assigned = False
                     for class_code, ids in enrollment_breakdown.get(course, {}).items():
                         already_assigned = assigned_students_tracker[course][class_code]
-                        remaining_students = ids[already_assigned:]
+                        # Filter out students already booked in this (day, slot)
+                        remaining_students = [sid for sid in ids[already_assigned:] if (day, slot) not in student_slot_bookings[sid]]
 
                         if not remaining_students:
                             continue
@@ -455,6 +458,9 @@ def exam_schedule(
                             continue
 
                         assigned_ids = remaining_students[:students_to_assign]
+                        # Mark booked for each assigned student
+                        for sid in assigned_ids:
+                            student_slot_bookings[sid].add((day, slot))
                         assigned_students_tracker[course][class_code] += students_to_assign
                         unassigned -= students_to_assign
 
@@ -523,7 +529,8 @@ def exam_schedule(
                     assigned = False
                     for class_code, ids in enrollment_breakdown.get(course, {}).items():
                         already_assigned = assigned_students_tracker[course][class_code]
-                        remaining_students = ids[already_assigned:]
+                        # Filter out students already booked in this (day, slot)
+                        remaining_students = [sid for sid in ids[already_assigned:] if (day, slot) not in student_slot_bookings[sid]]
 
                         if not remaining_students:
                             continue
@@ -533,6 +540,9 @@ def exam_schedule(
                             continue
 
                         assigned_ids = remaining_students[:students_to_assign]
+                        # Mark booked for each assigned student
+                        for sid in assigned_ids:
+                            student_slot_bookings[sid].add((day, slot))
                         assigned_students_tracker[course][class_code] += students_to_assign
                         available_space[(day, slot)][over_room] -= students_to_assign
                         unassigned -= students_to_assign

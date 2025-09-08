@@ -8,7 +8,9 @@ from .views import (
     delete_event,
     timetable_settings,
     day_view,
-    student_exam_schedule_list
+    student_exam_schedule_list,
+    exam_schedule_list_all,
+    timetable_list_view,
 )
 app_name = 'portal'
 
@@ -23,6 +25,8 @@ urlpatterns = [
     path('exam-timetable/', views.exam_timetable_grid, name='exam_timetable_grid'),
 
     path('exam-schedule/list/', student_exam_schedule_list, name='exam_schedule_list'),
+    path('exam-schedule/list/all/', exam_schedule_list_all, name='exam_schedule_list_all'),
+    path('timetable/list/', timetable_list_view, name='timetable_list'),
 
     path('personal_timetable/', timetable_view, name='timetable'),
     path('personal_timetable/add/', add_event, name='add_event'),
