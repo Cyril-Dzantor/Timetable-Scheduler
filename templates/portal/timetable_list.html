@@ -2,42 +2,249 @@
 {% block title %}Timetable (List){% endblock %}
 
 {% block content %}
-<div class="container py-3">
-  <div class="card">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">Timetable - {{ role|title }} View</h5>
-      <a href="{% url 'portal:timetable_grid' %}" class="btn btn-sm btn-light">Grid View</a>
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">
+                <i class="fas fa-calendar-alt me-2"></i>
+                Timetable - {{ role|title }} View
+            </h2>
+            <div>
+                <button onclick="printTimetable()" class="btn btn-light me-2">
+                    <i class="fas fa-print me-1"></i> Print Timetable
+                </button>
+                <a href="{% url 'portal:timetable_grid' %}" class="btn btn-sm btn-light">Grid View</a>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <!-- Regular View -->
+            <div class="screen-view">
+                {% if items %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Class</th>
+                                <th>Course</th>
+                                <th>Day</th>
+                                <th>Time</th>
+                                <th>Room</th>
+                                <th>Lecturer</th>
+                                <th>Enrollment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td><strong>{{ item.class_code }}</strong></td>
+                                <td>
+                                    <strong>{{ item.course_code }}</strong><br>
+                                    <small class="text-muted">{{ item.course_title }}</small>
+                                </td>
+                                <td><strong>{{ item.day }}</strong></td>
+                                <td>{{ item.start_time }} - {{ item.end_time }}</td>
+                                <td>{{ item.room }}</td>
+                                <td>{{ item.lecturer }}</td>
+                                <td><span class="badge bg-info">{{ item.enrollment }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>No Schedules Found</h5>
+                    <p class="mb-0">No lecture schedules have been found for your account.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Printable View (hidden on screen) -->
+            <div class="print-view" style="display: none;">
+                <h4 class="text-center">
+                    LECTURE TIMETABLE<br>
+                    {% now "Y" %}/{% now "Y"|add:"1" %} ACADEMIC YEAR
+                </h4>
+                <p class="text-center">
+                    <strong>{{ role|title }} View</strong>
+                </p>
+                
+                {% if items %}
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Course</th>
+                            <th>Day</th>
+                            <th>Time</th>
+                            <th>Room</th>
+                            <th>Lecturer</th>
+                            <th>Enrollment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td><strong>{{ item.class_code }}</strong></td>
+                            <td>
+                                <strong>{{ item.course_code }}</strong><br>
+                                {{ item.course_title }}
+                            </td>
+                            <td><strong>{{ item.day }}</strong></td>
+                            <td>{{ item.start_time }} - {{ item.end_time }}</td>
+                            <td>{{ item.room }}</td>
+                            <td>{{ item.lecturer }}</td>
+                            <td>{{ item.enrollment }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-center">No schedules found.</p>
+                {% endif %}
+                
+                <div class="text-center mt-4">
+                    <small>Generated on {% now "j F Y" %} from Unischeduler</small>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body p-0">
-      <table class="table table-hover mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Day</th>
-            <th>Time</th>
-            <th>Course</th>
-            <th>Room</th>
-            <th>Class</th>
-            <th>Lecturer</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for it in items %}
-          <tr>
-            <td>{{ it.day }}</td>
-            <td>{{ it.start_time }} - {{ it.end_time }}</td>
-            <td><strong>{{ it.course_code }}</strong> — {{ it.course_title }}</td>
-            <td>{{ it.room }}</td>
-            <td>{{ it.class_code }}</td>
-            <td>{{ it.lecturer }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="6" class="text-center text-muted py-4">No schedules found.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
 </div>
+
+<style>
+    /* Print-specific styles */
+    @media print {
+        body {
+            background: white;
+            color: black;
+            font-size: 12pt;
+        }
+
+        .card-header, .btn, .screen-view {
+            display: none !important;
+        }
+
+        .print-view {
+            display: block !important;
+        }
+
+        h4 {
+            font-size: 14pt;
+            margin-bottom: 10px;
+        }
+
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .print-table th,
+        .print-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 11pt;
+        }
+
+        .print-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .badge {
+            background-color: #6c757d !important;
+            color: white !important;
+        }
+    }
+
+    /* Hide print view on screen */
+    .print-view {
+        display: none;
+    }
+
+    .table th {
+        white-space: nowrap;
+    }
+
+    .table td {
+        vertical-align: middle;
+    }
+
+    .badge {
+        font-size: 0.8em;
+    }
+</style>
+
+<script>
+function printTimetable() {
+    const printContent = document.querySelector('.print-view').cloneNode(true);
+    printContent.style.display = 'block';
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Timetable - {{ role|title }} View</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 12pt;
+                    margin: 20px;
+                }
+
+                h4 {
+                    font-size: 14pt;
+                    text-align: center;
+                    margin-bottom: 10px;
+                }
+
+                .text-center {
+                    text-align: center;
+                }
+
+                .print-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                }
+
+                .print-table th,
+                .print-table td {
+                    border: 1px solid #000;
+                    padding: 8px;
+                    text-align: left;
+                    font-size: 11pt;
+                }
+
+                .print-table th {
+                    background-color: #f0f0f0;
+                    font-weight: bold;
+                }
+
+                @page {
+                    size: auto;
+                    margin: 10mm;
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent.innerHTML}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 200);
+    };
+}
+</script>
 {% endblock %}
 
 

@@ -7,6 +7,7 @@ class LectureSchedule(models.Model):
     room = models.ForeignKey('Timetable.Room', on_delete=models.CASCADE)
     day = models.CharField(max_length=10)  # E.g. 'Monday'
     time_slot = models.ForeignKey('Timetable.TimeSlot', on_delete=models.CASCADE)
+    enrollment = models.PositiveIntegerField(default=0, help_text="Number of students enrolled in this class")
     created_at = models.DateTimeField(auto_now_add=True)
     college = models.ForeignKey(
         'Timetable.College',

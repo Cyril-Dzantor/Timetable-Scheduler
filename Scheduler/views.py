@@ -12,7 +12,6 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Q, Count
 
 
 def generate(request):
@@ -189,6 +188,7 @@ def generate_exam_schedule(request):
                     room_dimensions[room.code] = f"{default_size} x {default_size}"
             else:
                 default_size = min(10, room.capacity)
+                
                 room_dimensions[room.code] = f"{default_size} x {default_size}"
             
             max_courses[room.code] = room.max_courses
@@ -358,28 +358,46 @@ def accept_schedule(request):
                 # Get the room
                 room = Room.objects.get(code=schedule_item['room'])
                 
-                # Get or create time slot
-                start_time_str, end_time_str = schedule_item['slots'][0].split(' - ')
-                from datetime import datetime
-                start_time = datetime.strptime(start_time_str, '%H:%M').time()
-                end_time = datetime.strptime(end_time_str, '%H:%M').time()
-                
-                time_slot, created = TimeSlot.objects.get_or_create(
-                    start_time=start_time,
-                    end_time=end_time,
-                    defaults={'code': f"{start_time_str}-{end_time_str}", 'is_lecture_slot': True}
-                )
-                
-                # Create LectureSchedule object
-                LectureSchedule.objects.create(
-                    course=course,
-                    assigned_class=assigned_class,
-                    lecturer=lecturer,
-                    room=room,
-                    day=schedule_item['day'],
-                    time_slot=time_slot
-                )
-                saved_count += 1
+                # Process each time slot individually
+                for slot in schedule_item['slots']:
+                    # Clean up the slot string (remove any extra spaces)
+                    slot = slot.strip()
+                    
+                    # Split the slot into start and end times
+                    if ' - ' in slot:
+                        start_time_str, end_time_str = slot.split(' - ')
+                    else:
+                        print(f"Invalid slot format: {slot}")
+                        continue
+                    
+                    # Convert to time objects
+                    from datetime import datetime
+                    try:
+                        start_time = datetime.strptime(start_time_str, '%H:%M').time()
+                        end_time = datetime.strptime(end_time_str, '%H:%M').time()
+                    except ValueError:
+                        print(f"Invalid time format in slot: {slot}")
+                        continue
+                    
+                    # Create or get the time slot
+                    time_slot, created = TimeSlot.objects.get_or_create(
+                        start_time=start_time,
+                        end_time=end_time,
+                        defaults={'code': f"{start_time_str}-{end_time_str}", 'is_lecture_slot': True}
+                    )
+                    
+                    # Create LectureSchedule object for this time slot
+                    LectureSchedule.objects.create(
+                        course=course,
+                        assigned_class=assigned_class,
+                        lecturer=lecturer,
+                        room=room,
+                        day=schedule_item['day'],
+                        time_slot=time_slot,
+                        enrollment=schedule_item.get('enrollment', 0)
+                    )
+                    saved_count += 1
+                    print(f"Saved: {course.code} - {assigned_class.code} - {schedule_item['day']} - {slot}")
                 
             except Exception as e:
                 print(f"Error saving schedule item: {e}")

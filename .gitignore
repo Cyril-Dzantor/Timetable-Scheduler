@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 
 # === Django-specific ===
-db.sqlite3
-*.sqlite3
+# db.sqlite3
+# *.sqlite3
 *.log
 
 # === Secret config files ===

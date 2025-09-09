@@ -533,12 +533,23 @@ def exam_schedule_list_all(request):
         end_time = exam.time_slot.end_time
         duration_minutes = (end_time.hour * 60 + end_time.minute) - (start_time.hour * 60 + start_time.minute)
         rooms = []
+        total_enrollment = 0
+        
         for ra in exam.room_assignments.all():
             college = getattr(getattr(getattr(ra.room, 'building', None), 'college', None), 'name', None)
+            
+            # Calculate enrollment for this room
+            room_enrollment = 0
+            for class_allocation in ra.class_allocations.all():
+                room_enrollment += class_allocation.student_count
+            
+            total_enrollment += room_enrollment
+            
             rooms.append({
                 'code': ra.room.code,
                 'building': getattr(ra.room.building, 'name', 'N/A'),
                 'college': college or 'College Not Specified',
+                'enrollment': room_enrollment,
             })
 
         items.append({
@@ -550,7 +561,8 @@ def exam_schedule_list_all(request):
             'start_time': start_time.strftime('%H:%M'),
             'end_time': end_time.strftime('%H:%M'),
             'duration': f"{duration_minutes} minutes",
-            'rooms': rooms or [{'code': 'TBA', 'building': 'To be announced', 'college': 'College Not Specified'}],
+            'rooms': rooms or [{'code': 'TBA', 'building': 'To be announced', 'college': 'College Not Specified', 'enrollment': 0}],
+            'total_enrollment': total_enrollment,
         })
 
     if user.is_authenticated:
@@ -585,8 +597,9 @@ def timetable_list_view(request):
         # optional: keep as all; could filter by admin college if modeled
         pass
 
+    # Sort schedules properly: by class, then course, then day, then time
     items = []
-    for s in schedules.order_by('time_slot__start_time'):
+    for s in schedules.order_by('assigned_class__code', 'course__code', 'day', 'time_slot__start_time'):
         start = s.time_slot.start_time.strftime('%H:%M')
         end = s.time_slot.end_time.strftime('%H:%M')
         items.append({
@@ -599,6 +612,7 @@ def timetable_list_view(request):
             'room': getattr(s.room, 'code', 'TBA'),
             'class_code': getattr(s.assigned_class, 'code', ''),
             'lecturer': getattr(s.lecturer, 'name', ''),
+            'enrollment': getattr(s, 'enrollment', 0),
         })
 
     if user.is_authenticated:
