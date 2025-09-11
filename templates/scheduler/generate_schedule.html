@@ -12,7 +12,7 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-body text-center">
                     <i class="bi bi-calendar-week display-4 text-primary mb-3"></i>
-                    <h5 class="card-title">Class Timetable Scheduler</h5>
+                    <h5 class="card-title">Lecture Timetable Scheduler</h5>
                     <p class="card-text text-muted">Automatically generate a lecture timetable based on course, room, and lecturer availability constraints.</p>
                     <form method="post" action="{% url 'scheduler:generate' %}">
                         {% csrf_token %}

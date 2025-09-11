@@ -18,7 +18,10 @@ from Users.models import StudentProfile
 # Create your views here.
 
 
+@login_required
 def rooms(request):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     rooms = Room.objects.all()
     buildings = Building.objects.all()
     room_types = RoomType.objects.all()
@@ -58,7 +61,10 @@ def rooms(request):
     return render(request, 'timetable/rooms.html', context)
 
 
+@login_required
 def edit_room(request, room_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     room = get_object_or_404(Room, id=room_id)
     buildings = Building.objects.all()
     room_types = RoomType.objects.all()
@@ -90,13 +96,21 @@ def edit_room(request, room_id):
     }
     return render(request, 'timetable/edit_room.html', context)
 
+@login_required
 def delete_room(request, room_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
+    if request.method != 'POST':
+        return HttpResponse(status=405)
     room = get_object_or_404(Room, id=room_id)
     room.delete()
     return redirect('rooms')
 
 
+@login_required
 def courses(request):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     courses = Course.objects.all()
     all_lecturers = Lecturer.objects.all()
     all_classes = Class.objects.all()
@@ -140,7 +154,10 @@ def courses(request):
         'all_lab_types': all_lab_types
     })
 
+@login_required
 def edit_course(request, course_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     course = get_object_or_404(Course, id=course_id)
     all_lecturers = Lecturer.objects.all()
     all_classes = Class.objects.all()
@@ -173,17 +190,24 @@ def edit_course(request, course_id):
         'all_lab_types': all_lab_types
     })
 
+@login_required
 def delete_course(request, course_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
+    if request.method != 'POST':
+        return HttpResponse(status=405)
     course = get_object_or_404(Course, id=course_id)
     course.delete()
     return redirect('courses')
 
 
-
 import json
 
 
+@login_required
 def lecturers(request):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     lecturers = Lecturer.objects.all().select_related('department')
     all_departments = Department.objects.all()
     all_courses = Course.objects.all()
@@ -230,7 +254,10 @@ def lecturers(request):
         'all_courses': all_courses
     })
 
+@login_required
 def edit_lecturer(request, lecturer_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     lecturer = get_object_or_404(Lecturer, id=lecturer_id)
     all_departments = Department.objects.all()
     all_courses = Course.objects.all()
@@ -265,13 +292,21 @@ def edit_lecturer(request, lecturer_id):
     })
 
 
+@login_required
 def delete_lecturer(request, lecturer_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
+    if request.method != 'POST':
+        return HttpResponse(status=405)
     lecturer = get_object_or_404(Lecturer, id=lecturer_id)
     lecturer.delete()
     return redirect('lecturers')
 
 
+@login_required
 def classes(request):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     classes = Class.objects.select_related('department').all()
     departments = Department.objects.all()
 
@@ -297,7 +332,10 @@ def classes(request):
     })
 
 # Edit a specific class
+@login_required
 def edit_class(request, class_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
     class_obj = get_object_or_404(Class, id=class_id)
     departments = Department.objects.all()
 
@@ -316,7 +354,12 @@ def edit_class(request, class_id):
     })
 
 
+@login_required
 def delete_class(request, class_id):
+    if not getattr(request.user, 'is_admin', False):
+        return redirect('home')
+    if request.method != 'POST':
+        return HttpResponse(status=405)
     class_obj = get_object_or_404(Class, id=class_id)
     class_obj.delete()
     return redirect('classes')
